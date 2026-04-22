@@ -6,6 +6,7 @@ const morgan = require("morgan");
 require("dotenv").config();
 
 const { getDatabaseInfo, getDb } = require("./db/database");
+const clientsRouter = require("./modules/clients/clients.routes");
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
@@ -54,31 +55,7 @@ app.get("/api/dashboard/summary", (req, res) => {
   });
 });
 
-app.get("/api/clientes", (req, res) => {
-  const db = getDb();
-  const clients = db
-    .prepare(
-      `SELECT
-        id,
-        tipo_persona,
-        apellido,
-        nombre,
-        razon_social,
-        dni_cuit,
-        telefono,
-        email,
-        localidad,
-        provincia,
-        activo
-      FROM clientes
-      WHERE activo = 1
-      ORDER BY apellido COLLATE NOCASE, nombre COLLATE NOCASE, razon_social COLLATE NOCASE
-      LIMIT 100`
-    )
-    .all();
-
-  res.json({ clients });
-});
+app.use("/api/clientes", clientsRouter);
 
 function countRows(tableName, whereClause) {
   const db = getDb();
@@ -106,9 +83,12 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(500).json({
-    error: "INTERNAL_SERVER_ERROR",
-    message: "Unexpected server error",
+  const status = err.status || 500;
+
+  res.status(status).json({
+    error: err.code || "INTERNAL_SERVER_ERROR",
+    message: err.message || "Unexpected server error",
+    details: err.details,
   });
 });
 
