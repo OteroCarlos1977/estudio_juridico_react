@@ -21,6 +21,15 @@ function App() {
     retry: 1,
   });
 
+  const clientsQuery = useQuery({
+    queryKey: ["clients"],
+    queryFn: async () => {
+      const response = await api.get("/clientes");
+      return response.data.clients;
+    },
+    retry: 1,
+  });
+
   const isApiReady = healthQuery.data?.ok;
   const database = healthQuery.data?.database;
 
@@ -90,6 +99,41 @@ function App() {
             </div>
           </dl>
         </section>
+
+        <section className="panel">
+          <div className="panel-title">
+            <h2>Clientes activos</h2>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>DNI/CUIT</th>
+                  <th>Telefono</th>
+                  <th>Email</th>
+                  <th>Localidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(clientsQuery.data || []).map((client) => (
+                  <tr key={client.id}>
+                    <td>{formatClientName(client)}</td>
+                    <td>{client.dni_cuit || "-"}</td>
+                    <td>{client.telefono || "-"}</td>
+                    <td>{client.email || "-"}</td>
+                    <td>{formatLocation(client)}</td>
+                  </tr>
+                ))}
+                {clientsQuery.data?.length === 0 && (
+                  <tr>
+                    <td colSpan="5">No hay clientes activos cargados.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </main>
   );
@@ -102,6 +146,18 @@ function Metric({ title, value }) {
       <strong>{value}</strong>
     </article>
   );
+}
+
+function formatClientName(client) {
+  if (client.razon_social) {
+    return client.razon_social;
+  }
+
+  return [client.apellido, client.nombre].filter(Boolean).join(", ") || `Cliente ${client.id}`;
+}
+
+function formatLocation(client) {
+  return [client.localidad, client.provincia].filter(Boolean).join(", ") || "-";
 }
 
 export default App;

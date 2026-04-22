@@ -167,6 +167,7 @@ h2 {
 
 .panel {
   padding: 18px;
+  margin-bottom: 18px;
 }
 
 .panel-title {
@@ -198,6 +199,35 @@ h2 {
 .details dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 820px;
+  width: 100%;
+}
+
+th,
+td {
+  border-top: 1px solid #edf0f5;
+  font-size: 14px;
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: #4c5b70;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+td {
+  color: #172033;
 }
 
 @media (max-width: 860px) {
