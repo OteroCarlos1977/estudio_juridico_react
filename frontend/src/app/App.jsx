@@ -1,8 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Database, Scale, Server } from "lucide-react";
 import { api } from "../api/client";
+import { AgendaPanel } from "../modules/agenda/AgendaPanel";
+import { AttachmentsPanel } from "../modules/attachments/AttachmentsPanel";
 import { ClientsPanel } from "../modules/clients/ClientsPanel";
 import { CasesPanel } from "../modules/cases/CasesPanel";
+import { FinancePanel } from "../modules/finance/FinancePanel";
+import { SystemPanel } from "../modules/system/SystemPanel";
 
 function App() {
   const healthQuery = useQuery({
@@ -95,6 +99,10 @@ function App() {
 
         <ClientsPanel />
         <CasesPanel />
+        <AgendaPanel />
+        <FinancePanel />
+        <AttachmentsPanel />
+        <SystemPanel />
       </section>
     </main>
   );

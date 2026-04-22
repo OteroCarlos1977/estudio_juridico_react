@@ -8,6 +8,10 @@ require("dotenv").config();
 const { getDatabaseInfo, getDb } = require("./db/database");
 const clientsRouter = require("./modules/clients/clients.routes");
 const casesRouter = require("./modules/cases/cases.routes");
+const agendaRouter = require("./modules/agenda/agenda.routes");
+const financeRouter = require("./modules/finance/finance.routes");
+const attachmentsRouter = require("./modules/attachments/attachments.routes");
+const systemRouter = require("./modules/system/system.routes");
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
@@ -58,6 +62,10 @@ app.get("/api/dashboard/summary", (req, res) => {
 
 app.use("/api/clientes", clientsRouter);
 app.use("/api/expedientes", casesRouter);
+app.use("/api/agenda", agendaRouter);
+app.use("/api/finanzas", financeRouter);
+app.use("/api/adjuntos", attachmentsRouter);
+app.use("/api/sistema", systemRouter);
 
 function countRows(tableName, whereClause) {
   const db = getDb();
