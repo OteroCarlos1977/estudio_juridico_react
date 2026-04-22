@@ -178,6 +178,7 @@ h2 {
 }
 
 .panel-title.split {
+  align-items: flex-end;
   justify-content: space-between;
 }
 
@@ -193,6 +194,10 @@ h2 {
   gap: 6px;
   grid-template-columns: 140px minmax(0, 1fr);
   padding-top: 10px;
+}
+
+.compact-details {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .details dt {
@@ -329,6 +334,25 @@ textarea:focus {
 .row-button {
   min-height: 32px;
   padding: 6px 9px;
+}
+
+.row-button.danger {
+  border-color: #e6b8b3;
+  color: #9a2c24;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.search-box {
+  min-width: 260px;
+}
+
+.selected-row td {
+  background: #eef5ff;
 }
 
 .form-message {

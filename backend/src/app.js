@@ -7,6 +7,7 @@ require("dotenv").config();
 
 const { getDatabaseInfo, getDb } = require("./db/database");
 const clientsRouter = require("./modules/clients/clients.routes");
+const casesRouter = require("./modules/cases/cases.routes");
 
 const app = express();
 const port = Number(process.env.PORT || 3001);
@@ -56,6 +57,7 @@ app.get("/api/dashboard/summary", (req, res) => {
 });
 
 app.use("/api/clientes", clientsRouter);
+app.use("/api/expedientes", casesRouter);
 
 function countRows(tableName, whereClause) {
   const db = getDb();
