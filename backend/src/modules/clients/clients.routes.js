@@ -192,6 +192,33 @@ router.put("/:id", (req, res, next) => {
   }
 });
 
+router.delete("/:id", (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      throw httpError(400, "INVALID_CLIENT_ID", "Id de cliente invalido.");
+    }
+
+    const current = findClientById(id);
+
+    if (!current) {
+      throw httpError(404, "CLIENT_NOT_FOUND", "Cliente no encontrado.");
+    }
+
+    getDb()
+      .prepare("UPDATE clientes SET activo = 0, updated_at = @updated_at WHERE id = @id")
+      .run({
+        id,
+        updated_at: currentTimestamp(),
+      });
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
 function findClientById(id) {
   const numericId = Number(id);
 

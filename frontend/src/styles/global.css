@@ -177,6 +177,10 @@ h2 {
   margin-bottom: 14px;
 }
 
+.panel-title.split {
+  justify-content: space-between;
+}
+
 .details {
   display: grid;
   gap: 10px;
@@ -230,6 +234,117 @@ td {
   color: #172033;
 }
 
+.client-form {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+label {
+  color: #4c5b70;
+  display: grid;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid #cfd7e3;
+  border-radius: 7px;
+  color: #172033;
+  font: inherit;
+  min-height: 38px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #2d6cdf;
+  box-shadow: 0 0 0 3px rgba(45, 108, 223, 0.14);
+  outline: none;
+}
+
+.form-wide {
+  grid-column: 1 / -1;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primary-button,
+.secondary-button,
+.icon-button,
+.row-button {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 600;
+  gap: 7px;
+  justify-content: center;
+  min-height: 36px;
+}
+
+.primary-button {
+  background: #2257a8;
+  color: #ffffff;
+  padding: 8px 13px;
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.secondary-button,
+.row-button {
+  background: #ffffff;
+  border-color: #cfd7e3;
+  color: #172033;
+  padding: 8px 12px;
+}
+
+.icon-button {
+  background: #ffffff;
+  border-color: #cfd7e3;
+  color: #172033;
+  height: 36px;
+  padding: 0;
+  width: 36px;
+}
+
+.row-button {
+  min-height: 32px;
+  padding: 6px 9px;
+}
+
+.form-message {
+  color: #17683a;
+  font-size: 14px;
+  font-weight: 600;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.error-text {
+  color: #a12c24;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 @media (max-width: 860px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -264,11 +379,16 @@ td {
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .client-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
   .summary-grid,
-  .details div {
+  .details div,
+  .client-form {
     grid-template-columns: 1fr;
   }
 }
