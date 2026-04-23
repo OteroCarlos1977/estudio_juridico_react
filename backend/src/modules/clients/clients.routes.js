@@ -258,16 +258,46 @@ function parseClientPayload(body) {
     throw httpError(400, "VALIDATION_ERROR", "Datos de cliente invalidos.", result.error.flatten());
   }
 
-  return normalizeEmptyStrings(result.data);
+  return normalizeClientPayload(result.data);
 }
 
-function normalizeEmptyStrings(value) {
+function normalizeClientPayload(value) {
   return Object.fromEntries(
     clientFields.map((key) => {
       const item = value[key];
-      return [key, item === "" ? null : item ?? null];
+      if (item === "" || item === undefined || item === null) {
+        return [key, null];
+      }
+
+      return [key, normalizeClientField(key, item)];
     })
   );
+}
+
+function normalizeClientField(key, value) {
+  const text = String(value).trim();
+
+  if (["apellido", "nombre", "razon_social", "domicilio", "localidad", "provincia"].includes(key)) {
+    return text.toUpperCase();
+  }
+
+  if (key === "email") {
+    return text.toLowerCase();
+  }
+
+  if (key === "dni_cuit") {
+    return text.replace(/[^\d-]/g, "");
+  }
+
+  if (key === "telefono") {
+    return text.replace(/[^+()\d\s-]/g, "");
+  }
+
+  if (key === "codigo_postal") {
+    return text.toUpperCase().replace(/[^A-Z0-9\s-]/g, "");
+  }
+
+  return text;
 }
 
 function currentTimestamp() {

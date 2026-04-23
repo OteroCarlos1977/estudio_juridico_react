@@ -1,7 +1,8 @@
-import { Edit3, Eye, Trash2 } from "lucide-react";
+import { Edit3, Eye, Plus, Trash2 } from "lucide-react";
+import { QueryState } from "../../ui/QueryState";
 import { formatClientName, formatLocation } from "./clientUtils";
 
-export function ClientTable({ clients, search, selectedClientId, onSearchChange, onEdit, onView, onDelete }) {
+export function ClientTable({ clients, search, selectedClientId, isLoading, isError, onSearchChange, onCreate, onEdit, onView, onDelete }) {
   const normalizedSearch = search.trim().toLowerCase();
   const filteredClients = clients.filter((client) =>
     [
@@ -21,13 +22,20 @@ export function ClientTable({ clients, search, selectedClientId, onSearchChange,
     <section className="panel">
       <div className="panel-title split">
         <h2>Clientes activos</h2>
-        <label className="search-box">
-          Buscar
-          <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Nombre, DNI, email" />
-        </label>
+        <div className="panel-actions">
+          <label className="search-box">
+            Buscar
+            <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Nombre, DNI, email" />
+          </label>
+          <button className="primary-button" type="button" onClick={onCreate}>
+            <Plus size={17} />
+            Nuevo
+          </button>
+        </div>
       </div>
 
-      <div className="table-wrap">
+      <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando clientes..." errorText="No se pudieron cargar los clientes." />
+      {!isLoading && !isError && <div className="table-wrap">
         <table>
           <thead>
             <tr>
@@ -72,7 +80,7 @@ export function ClientTable({ clients, search, selectedClientId, onSearchChange,
             )}
           </tbody>
         </table>
-      </div>
+      </div>}
     </section>
   );
 }

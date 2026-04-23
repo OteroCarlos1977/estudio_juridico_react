@@ -40,7 +40,45 @@ export function validateClientForm(form) {
     errors.email = ["Email invalido."];
   }
 
+  if (form.telefono.trim() && !/^[+()0-9\s-]{6,30}$/.test(form.telefono.trim())) {
+    errors.telefono = ["Telefono invalido. Use solo numeros, espacios, +, guiones o parentesis."];
+  }
+
+  if (form.dni_cuit.trim() && !/^[0-9-]{7,13}$/.test(form.dni_cuit.trim())) {
+    errors.dni_cuit = ["DNI/CUIT invalido. Use solo numeros y guiones."];
+  }
+
   return errors;
+}
+
+export function normalizeClientField(name, value) {
+  if (["apellido", "nombre", "razon_social", "domicilio", "localidad", "provincia"].includes(name)) {
+    return value.toUpperCase();
+  }
+
+  if (name === "email") {
+    return value.trim().toLowerCase();
+  }
+
+  if (name === "dni_cuit") {
+    return value.replace(/[^\d-]/g, "");
+  }
+
+  if (name === "telefono") {
+    return value.replace(/[^+()\d\s-]/g, "");
+  }
+
+  if (name === "codigo_postal") {
+    return value.toUpperCase().replace(/[^A-Z0-9\s-]/g, "");
+  }
+
+  return value;
+}
+
+export function normalizeClientPayload(form) {
+  return Object.fromEntries(
+    Object.entries(form).map(([key, value]) => [key, typeof value === "string" ? normalizeClientField(key, value).trim() : value])
+  );
 }
 
 export function clientToForm(client) {

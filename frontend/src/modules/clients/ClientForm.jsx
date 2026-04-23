@@ -7,17 +7,22 @@ export function ClientForm({
   isSaving,
   message,
   isError,
+  showNewButton = true,
+  surface = "panel",
+  titleId,
   onChange,
   onSubmit,
   onReset,
 }) {
   return (
-    <section className="panel">
+    <section className={surface === "panel" ? "panel" : undefined}>
       <div className="panel-title split">
-        <h2>{isEditing ? "Editar cliente" : "Nuevo cliente"}</h2>
-        <button className="icon-button" type="button" onClick={onReset} title="Nuevo cliente">
-          <Plus size={17} />
-        </button>
+        <h2 id={titleId}>{isEditing ? "Editar cliente" : "Nuevo cliente"}</h2>
+        {showNewButton && (
+          <button className="icon-button" type="button" onClick={onReset} title="Nuevo cliente">
+            <Plus size={17} />
+          </button>
+        )}
       </div>
 
       <form className="client-form" onSubmit={onSubmit} noValidate>
@@ -38,9 +43,9 @@ export function ClientForm({
           error={errors.razon_social}
           onChange={onChange}
         />
-        <Field label="DNI/CUIT" name="dni_cuit" value={form.dni_cuit} error={errors.dni_cuit} onChange={onChange} />
-        <Field label="Telefono" name="telefono" value={form.telefono} error={errors.telefono} onChange={onChange} />
-        <Field label="Email" name="email" type="email" value={form.email} error={errors.email} onChange={onChange} />
+        <Field label="DNI/CUIT" name="dni_cuit" value={form.dni_cuit} error={errors.dni_cuit} onChange={onChange} inputMode="numeric" />
+        <Field label="Telefono" name="telefono" value={form.telefono} error={errors.telefono} onChange={onChange} inputMode="tel" />
+        <Field label="Email" name="email" type="email" value={form.email} error={errors.email} onChange={onChange} inputMode="email" />
         <Field label="Domicilio" name="domicilio" value={form.domicilio} error={errors.domicilio} onChange={onChange} />
         <Field label="Localidad" name="localidad" value={form.localidad} error={errors.localidad} onChange={onChange} />
         <Field label="Provincia" name="provincia" value={form.provincia} error={errors.provincia} onChange={onChange} />
@@ -75,11 +80,11 @@ export function ClientForm({
   );
 }
 
-function Field({ label, name, value, error, onChange, type = "text" }) {
+function Field({ label, name, value, error, onChange, type = "text", inputMode }) {
   return (
     <label>
       {label}
-      <input name={name} type={type} value={value} onChange={onChange} />
+      <input name={name} type={type} value={value} inputMode={inputMode} onChange={onChange} />
       <ErrorText value={error} />
     </label>
   );

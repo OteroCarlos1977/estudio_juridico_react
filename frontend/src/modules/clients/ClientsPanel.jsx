@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, Modal } from "react-bootstrap";
 import { api } from "../../api/client";
+import { confirmDelete, showError, showSuccess } from "../../ui/alerts";
 import { ClientDetail } from "./ClientDetail";
 import { ClientForm } from "./ClientForm";
 import { ClientTable } from "./ClientTable";
-import { clientToForm, emptyClientForm, formatClientName, validateClientForm } from "./clientUtils";
+import { clientToForm, emptyClientForm, formatClientName, normalizeClientField, normalizeClientPayload, validateClientForm } from "./clientUtils";
 
 export function ClientsPanel() {
   const queryClient = useQueryClient();
@@ -14,6 +16,7 @@ export function ClientsPanel() {
   const [clientFormErrors, setClientFormErrors] = useState({});
   const [clientFormMessage, setClientFormMessage] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
 
   const clientsQuery = useQuery({
     queryKey: ["clients"],
@@ -51,13 +54,16 @@ export function ClientsPanel() {
       setClientForm(emptyClientForm);
       setEditingClientId(null);
       setSelectedClientId(client.id);
+      setIsClientModalOpen(false);
       setClientFormErrors({});
       setClientFormMessage(`Cliente guardado: ${formatClientName(client)}`);
+      showSuccess(`Cliente guardado: ${formatClientName(client)}`);
     },
     onError: (error) => {
       const response = error.response?.data;
       setClientFormErrors(response?.details?.fieldErrors || {});
       setClientFormMessage(response?.message || "No se pudo guardar el cliente.");
+      showError(response?.message || "No se pudo guardar el cliente.");
     },
   });
 
@@ -71,18 +77,19 @@ export function ClientsPanel() {
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       queryClient.removeQueries({ queryKey: ["client-detail", clientId] });
       if (editingClientId === clientId) {
-        startNewClient();
+        closeClientModal();
       }
       if (selectedClientId === clientId) {
         setSelectedClientId(null);
       }
       setClientFormMessage("Cliente eliminado.");
+      showSuccess("Cliente eliminado.");
     },
   });
 
   function handleClientFieldChange(event) {
     const { name, value } = event.target;
-    setClientForm((current) => ({ ...current, [name]: value }));
+    setClientForm((current) => ({ ...current, [name]: normalizeClientField(name, value) }));
     setClientFormErrors((current) => ({ ...current, [name]: undefined }));
   }
 
@@ -90,7 +97,8 @@ export function ClientsPanel() {
     event.preventDefault();
     setClientFormMessage("");
 
-    const validationErrors = validateClientForm(clientForm);
+    const normalizedForm = normalizeClientPayload(clientForm);
+    const validationErrors = validateClientForm(normalizedForm);
     setClientFormErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
@@ -98,10 +106,20 @@ export function ClientsPanel() {
       return;
     }
 
-    saveClientMutation.mutate(clientForm);
+    setClientForm(normalizedForm);
+    saveClientMutation.mutate(normalizedForm);
   }
 
   function startNewClient() {
+    setClientForm(emptyClientForm);
+    setEditingClientId(null);
+    setClientFormErrors({});
+    setClientFormMessage("");
+    setIsClientModalOpen(true);
+  }
+
+  function closeClientModal() {
+    setIsClientModalOpen(false);
     setClientForm(emptyClientForm);
     setEditingClientId(null);
     setClientFormErrors({});
@@ -118,41 +136,71 @@ export function ClientsPanel() {
       setEditingClientId(client.id);
       setSelectedClientId(client.id);
       setClientForm(clientToForm(client));
+      setIsClientModalOpen(true);
     } catch (error) {
       setClientFormMessage(error.response?.data?.message || "No se pudo cargar el cliente.");
     }
   }
 
-  function confirmDeleteClient(client) {
+  async function confirmDeleteClient(client) {
     const name = formatClientName(client);
-    if (window.confirm(`Eliminar cliente "${name}"? Esta accion lo ocultara del listado activo.`)) {
+    const confirmed = await confirmDelete({
+      title: `Eliminar cliente "${name}"?`,
+      text: "Esta accion lo ocultara del listado activo.",
+    });
+
+    if (confirmed) {
       deleteClientMutation.mutate(client.id);
     }
   }
 
   return (
     <>
-      <ClientForm
-        form={clientForm}
-        errors={clientFormErrors}
-        isEditing={Boolean(editingClientId)}
-        isSaving={saveClientMutation.isPending}
-        message={clientFormMessage}
-        isError={saveClientMutation.isError}
-        onChange={handleClientFieldChange}
-        onSubmit={handleClientSubmit}
-        onReset={startNewClient}
-      />
-      <ClientDetail client={selectedClientQuery.data} />
+      {clientFormMessage && !isClientModalOpen && (
+        <div className={saveClientMutation.isError ? "notice error" : "notice success"}>
+          {clientFormMessage}
+        </div>
+      )}
+
+      <ClientDetail client={selectedClientQuery.data} onClose={() => setSelectedClientId(null)} />
       <ClientTable
         clients={clientsQuery.data || []}
         search={clientSearch}
         selectedClientId={selectedClientId}
+        isLoading={clientsQuery.isLoading}
+        isError={clientsQuery.isError}
         onSearchChange={setClientSearch}
+        onCreate={startNewClient}
         onEdit={startEditingClient}
         onView={setSelectedClientId}
         onDelete={confirmDeleteClient}
       />
+
+      {isClientModalOpen && (
+        <Modal show onHide={closeClientModal} centered size="xl" aria-labelledby="client-modal-title">
+          <Modal.Body>
+            <ClientForm
+              form={clientForm}
+              errors={clientFormErrors}
+              isEditing={Boolean(editingClientId)}
+              isSaving={saveClientMutation.isPending}
+              message={clientFormMessage}
+              isError={saveClientMutation.isError}
+              showNewButton={false}
+              surface="modal"
+              titleId="client-modal-title"
+              onChange={handleClientFieldChange}
+              onSubmit={handleClientSubmit}
+              onReset={startNewClient}
+            />
+            <div className="form-actions modal-actions">
+              <Button variant="outline-secondary" type="button" onClick={closeClientModal}>
+                Cancelar
+              </Button>
+            </div>
+          </Modal.Body>
+        </Modal>
+      )}
     </>
   );
 }

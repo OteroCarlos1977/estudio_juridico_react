@@ -6,6 +6,9 @@ const morgan = require("morgan");
 require("dotenv").config();
 
 const { getDatabaseInfo, getDb } = require("./db/database");
+const { auditCrud } = require("./audit");
+const { requireAuth, requirePermission } = require("./auth/auth.middleware");
+const authRouter = require("./auth/auth.routes");
 const clientsRouter = require("./modules/clients/clients.routes");
 const casesRouter = require("./modules/cases/cases.routes");
 const agendaRouter = require("./modules/agenda/agenda.routes");
@@ -45,7 +48,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/api/dashboard/summary", (req, res) => {
+app.get("/api/dashboard/summary", requireAuth, requirePermission("read"), (req, res) => {
   res.json({
     clients: countRows("clientes", "activo = 1"),
     cases: countRows("expedientes", "activo = 1"),
@@ -58,6 +61,47 @@ app.get("/api/dashboard/summary", (req, res) => {
       "LOWER(COALESCE(estado_pago, '')) NOT IN ('pagado', 'cancelado', 'cobrado')"
     ),
   });
+});
+
+app.get("/api/dashboard/dollar", requireAuth, requirePermission("read"), async (req, res, next) => {
+  try {
+    const response = await fetch("https://dolarapi.com/v1/dolares");
+    if (!response.ok) {
+      throw httpError(502, "DOLLAR_API_ERROR", "No se pudo consultar la cotizacion del dolar.");
+    }
+
+    const quotes = await response.json();
+    const relevantQuotes = quotes
+      .filter((quote) => ["oficial", "blue", "tarjeta"].includes(quote.casa))
+      .map((quote) => ({
+        casa: quote.casa,
+        nombre: quote.nombre,
+        compra: quote.compra,
+        venta: quote.venta,
+        moneda: quote.moneda,
+        fechaActualizacion: quote.fechaActualizacion,
+      }));
+
+    res.json({ quotes: relevantQuotes });
+  } catch (err) {
+    next(err.status ? err : httpError(502, "DOLLAR_API_ERROR", "No se pudo consultar la cotizacion del dolar."));
+  }
+});
+
+app.use("/api/auth", authRouter);
+app.use("/api", requireAuth);
+app.use("/api", auditCrud);
+app.use("/api", requirePermission("read"));
+app.use((req, res, next) => {
+  if (["POST", "PUT", "PATCH"].includes(req.method)) {
+    return requirePermission("write")(req, res, next);
+  }
+
+  if (req.method === "DELETE") {
+    return requirePermission("delete")(req, res, next);
+  }
+
+  next();
 });
 
 app.use("/api/clientes", clientsRouter);
@@ -82,6 +126,14 @@ function countRows(tableName, whereClause) {
     : `SELECT COUNT(*) AS total FROM ${tableName}`;
 
   return db.prepare(sql).get().total;
+}
+
+function httpError(status, code, message, details) {
+  const err = new Error(message);
+  err.status = status;
+  err.code = code;
+  err.details = details;
+  return err;
 }
 
 app.use((req, res) => {
