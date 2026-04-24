@@ -1,5 +1,7 @@
-import { Button, Modal } from "react-bootstrap";
-import { RotateCcw, Save, X } from "lucide-react";
+import { Modal } from "react-bootstrap";
+import { RotateCcw, Save } from "lucide-react";
+import { FormError, FormField, FormSelect, FormTextarea } from "../../ui/FormFields";
+import { FormActionBar, ModalFormHeader } from "../../ui/FormLayout";
 
 export function CaseForm({
   form,
@@ -18,48 +20,39 @@ export function CaseForm({
   return (
     <Modal show onHide={onClose} centered size="xl" aria-labelledby="case-form-title">
       <Modal.Body>
-        <div className="panel-title split">
-          <h2 id="case-form-title">{isEditing ? "Editar expediente" : "Nuevo expediente"}</h2>
-          <Button variant="outline-secondary" className="icon-button close-detail-button" type="button" onClick={onClose} title="Cerrar">
-            <X size={17} />
-          </Button>
-        </div>
+        <ModalFormHeader title={isEditing ? "Editar expediente" : "Nuevo expediente"} titleId="case-form-title" onClose={onClose} />
         <form className="client-form modal-form" onSubmit={onSubmit} noValidate>
-          <label>
-            Cliente
-            <select name="cliente_principal_id" value={form.cliente_principal_id} onChange={onChange}>
-              <option value="">Seleccionar</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.razon_social || [client.apellido, client.nombre].filter(Boolean).join(", ")}
-                </option>
-              ))}
-            </select>
-            <ErrorText value={errors.cliente_principal_id} />
-          </label>
-          <Field label="Numero" name="numero_expediente" value={form.numero_expediente} onChange={onChange} />
-          <Field label="Caratula" name="caratula" value={form.caratula} error={errors.caratula} onChange={onChange} />
-          <Field label="Materia" name="materia" value={form.materia} onChange={onChange} />
-          <Field label="Fuero" name="fuero" value={form.fuero} onChange={onChange} />
-          <Field label="Jurisdiccion" name="jurisdiccion" value={form.jurisdiccion} onChange={onChange} />
-          <Field label="Juzgado" name="juzgado" value={form.juzgado} onChange={onChange} />
-          <Field label="Secretaria" name="secretaria" value={form.secretaria} onChange={onChange} />
-          <label>
-            Estado
-            <select name="estado_expediente" value={form.estado_expediente} onChange={onChange}>
-              {stateOptions.map((state) => (
-                <option key={state} value={state}>{state}</option>
-              ))}
-            </select>
-            <ErrorText value={errors.estado_expediente} />
-          </label>
-          <Field label="Fecha inicio" name="fecha_inicio" type="date" value={form.fecha_inicio} onChange={onChange} />
-          <Field label="Fecha cierre" name="fecha_cierre" type="date" value={form.fecha_cierre} error={errors.fecha_cierre} onChange={onChange} />
-          <label className="form-wide">
-            Observaciones
-            <textarea name="observaciones" rows="3" value={form.observaciones} onChange={onChange} />
-          </label>
-          <div className="form-actions form-wide">
+          <FormSelect
+            label="Cliente"
+            name="cliente_principal_id"
+            value={form.cliente_principal_id}
+            error={errors.cliente_principal_id}
+            onChange={onChange}
+            placeholder="Seleccionar"
+            options={clients.map((client) => ({
+              value: client.id,
+              label: client.razon_social || [client.apellido, client.nombre].filter(Boolean).join(", "),
+            }))}
+          />
+          <FormField label="Numero" name="numero_expediente" value={form.numero_expediente} onChange={onChange} />
+          <FormField label="Caratula" name="caratula" value={form.caratula} error={errors.caratula} onChange={onChange} />
+          <FormField label="Materia" name="materia" value={form.materia} onChange={onChange} />
+          <FormField label="Fuero" name="fuero" value={form.fuero} onChange={onChange} />
+          <FormField label="Jurisdiccion" name="jurisdiccion" value={form.jurisdiccion} onChange={onChange} />
+          <FormField label="Juzgado" name="juzgado" value={form.juzgado} onChange={onChange} />
+          <FormField label="Secretaria" name="secretaria" value={form.secretaria} onChange={onChange} />
+          <FormSelect
+            label="Estado"
+            name="estado_expediente"
+            value={form.estado_expediente}
+            error={errors.estado_expediente}
+            onChange={onChange}
+            options={stateOptions.map((state) => ({ value: state, label: state }))}
+          />
+          <FormField label="Fecha inicio" name="fecha_inicio" type="date" value={form.fecha_inicio} onChange={onChange} />
+          <FormField label="Fecha cierre" name="fecha_cierre" type="date" value={form.fecha_cierre} error={errors.fecha_cierre} onChange={onChange} />
+          <FormTextarea className="form-wide" label="Observaciones" name="observaciones" rows={3} value={form.observaciones} onChange={onChange} />
+          <FormActionBar>
             <button className="primary-button" type="submit" disabled={isSaving}>
               <Save size={17} />
               Guardar
@@ -68,24 +61,10 @@ export function CaseForm({
               <RotateCcw size={17} />
               Limpiar
             </button>
-          </div>
+          </FormActionBar>
           {message && <p className={isError ? "form-message error-text" : "form-message"}>{message}</p>}
         </form>
       </Modal.Body>
     </Modal>
   );
-}
-
-function Field({ label, name, value, error, onChange, type = "text" }) {
-  return (
-    <label>
-      {label}
-      <input name={name} type={type} value={value} onChange={onChange} />
-      <ErrorText value={error} />
-    </label>
-  );
-}
-
-function ErrorText({ value }) {
-  return value?.length ? <span className="error-text">{value[0]}</span> : null;
 }

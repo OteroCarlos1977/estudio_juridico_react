@@ -1,5 +1,9 @@
+import { useState } from "react";
 import { CheckCircle2, Download, Edit3, Plus, Trash2 } from "lucide-react";
+import { Badge, Offcanvas, Stack } from "react-bootstrap";
+import { DataTable } from "../../ui/DataTable";
 import { QueryState } from "../../ui/QueryState";
+import { TableActionsDropdown } from "../../ui/TableActionsDropdown";
 
 export function AgendaTable({
   actions,
@@ -19,11 +23,13 @@ export function AgendaTable({
   onReportFilterChange,
   onDownloadReport,
 }) {
+  const [isUtilityOpen, setIsUtilityOpen] = useState(false);
+
   return (
-    <section className="panel" id="agenda">
+    <section className="panel" id="agenda" style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
       <div className="panel-title split">
         <h2>Agenda y tareas</h2>
-        <div className="panel-actions">
+        <Stack direction="horizontal" gap={2} className="panel-actions">
           <label className="search-box">
             Buscar
             <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Titulo, expediente, estado" />
@@ -32,23 +38,86 @@ export function AgendaTable({
             <Plus size={17} />
             Nueva tarea
           </button>
-        </div>
+          <button className="secondary-button" type="button" onClick={() => setIsUtilityOpen(true)}>
+            <Download size={16} />
+            Vista y reportes
+          </button>
+        </Stack>
       </div>
       {message && <p className={isSaveError ? "form-message error-text" : "form-message"}>{message}</p>}
-      <div className="filter-row">
-        <label>
-          Ver
-          <select value={typeFilter} onChange={(event) => onTypeFilterChange(event.target.value)}>
-            <option value="todos">Todo</option>
-            <option value="agenda">Agenda</option>
-            <option value="tarea">Tareas</option>
-          </select>
-        </label>
-      </div>
-      <section className="subsection-title">
-        <div className="panel-title split">
-          <h2>Reportes de agenda</h2>
-          <div className="panel-actions report-actions-inline">
+      <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando agenda..." errorText="No se pudo cargar la agenda." />
+      {!isLoading && !isError && (
+        <DataTable maxHeight="40vh">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Titulo</th>
+                <th>Expediente</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th className="actions-cell">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {actions.map((item) => (
+                <tr key={item.id}>
+                  <td>{formatDate(item.fecha_vencimiento || item.fecha_evento)}</td>
+                  <td>{item.clase_actuacion === "agenda" ? item.hora_evento || "-" : "-"}</td>
+                  <td>{item.titulo || item.descripcion || "-"}</td>
+                  <td>{item.numero_expediente || item.caratula || "-"}</td>
+                  <td>
+                    <Badge pill bg="light" text="dark" className="status-pill">
+                      {item.clase_actuacion === "agenda" ? "Agenda" : "Tarea"}
+                    </Badge>
+                  </td>
+                  <td>
+                    <Badge pill bg="light" text="dark" className={`status-pill ${item.cumplida ? "success" : getAgendaStateClass(item.estado_actuacion)}`}>
+                      {item.cumplida ? "Cumplida" : item.estado_actuacion || "Pendiente"}
+                    </Badge>
+                  </td>
+                  <td className="actions-cell">
+                    <TableActionsDropdown
+                      label="Acciones de agenda"
+                      items={[
+                        { key: "complete", label: "Cumplir", icon: <CheckCircle2 size={15} />, onClick: () => onComplete(item.id), hidden: item.cumplida },
+                        { key: "edit", label: "Editar", icon: <Edit3 size={15} />, onClick: () => onEdit(item.id) },
+                        { key: "delete", label: "Eliminar", icon: <Trash2 size={15} />, onClick: () => onDelete(item), danger: true },
+                      ]}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {actions.length === 0 && (
+                <tr>
+                  <td colSpan="7">No hay actuaciones para los filtros seleccionados.</td>
+                </tr>
+              )}
+            </tbody>
+        </DataTable>
+      )}
+
+      <Offcanvas show={isUtilityOpen} onHide={() => setIsUtilityOpen(false)} placement="end">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>Vista y reportes</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          <div className="offcanvas-form-grid">
+            <div className="subsection-title">
+              <h2>Vista</h2>
+            </div>
+            <label>
+              Ver
+              <select value={typeFilter} onChange={(event) => onTypeFilterChange(event.target.value)}>
+                <option value="todos">Todo</option>
+                <option value="agenda">Agenda</option>
+                <option value="tarea">Tareas</option>
+              </select>
+            </label>
+
+            <div className="subsection-title">
+              <h2>Reportes</h2>
+            </div>
             <label>
               Periodo
               <select name="tipo" value={reportFilters.tipo} onChange={onReportFilterChange}>
@@ -61,64 +130,11 @@ export function AgendaTable({
             </label>
             <button className="secondary-button" type="button" onClick={onDownloadReport}>
               <Download size={15} />
-              PDF
+              Descargar PDF
             </button>
           </div>
-        </div>
-      </section>
-      <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando agenda..." errorText="No se pudo cargar la agenda." />
-      {!isLoading && !isError && (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Titulo</th>
-                <th>Expediente</th>
-                <th>Tipo</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {actions.map((item) => (
-                <tr key={item.id}>
-                  <td>{formatDate(item.fecha_vencimiento || item.fecha_evento)}</td>
-                  <td>{item.clase_actuacion === "agenda" ? item.hora_evento || "-" : "-"}</td>
-                  <td>{item.titulo || item.descripcion || "-"}</td>
-                  <td>{item.numero_expediente || item.caratula || "-"}</td>
-                  <td>{item.clase_actuacion === "agenda" ? "Agenda" : "Tarea"}</td>
-                  <td>{item.cumplida ? "Cumplida" : item.estado_actuacion || "Pendiente"}</td>
-                  <td>
-                    <div className="row-actions">
-                      {!item.cumplida && (
-                        <button className="row-button" type="button" onClick={() => onComplete(item.id)}>
-                          <CheckCircle2 size={15} />
-                          Cumplir
-                        </button>
-                      )}
-                      <button className="row-button" type="button" onClick={() => onEdit(item.id)}>
-                        <Edit3 size={15} />
-                        Editar
-                      </button>
-                      <button className="row-button danger" type="button" onClick={() => onDelete(item)}>
-                        <Trash2 size={15} />
-                        Eliminar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {actions.length === 0 && (
-                <tr>
-                  <td colSpan="6">No hay actuaciones para los filtros seleccionados.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+        </Offcanvas.Body>
+      </Offcanvas>
     </section>
   );
 }
@@ -126,4 +142,12 @@ export function AgendaTable({
 function formatDate(value) {
   if (!value) return "-";
   return value;
+}
+
+function getAgendaStateClass(state) {
+  const normalized = String(state || "").toLowerCase();
+  if (["pendiente", "programada"].includes(normalized)) return "pending";
+  if (["vencida", "cancelada"].includes(normalized)) return "warning";
+  if (["cumplida", "cerrada"].includes(normalized)) return "success";
+  return "";
 }

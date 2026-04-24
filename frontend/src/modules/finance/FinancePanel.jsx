@@ -40,6 +40,7 @@ export function FinancePanel() {
     expediente_id: "",
     fecha_desde: "",
     fecha_hasta: "",
+    include_historical_settled: false,
   });
   const [reportFilters, setReportFilters] = useState({
     mes: new Date().toISOString().slice(0, 7),
@@ -72,6 +73,12 @@ export function FinancePanel() {
   const clientsQuery = useQuery({
     queryKey: ["clients"],
     queryFn: async () => (await api.get("/clientes")).data.clients,
+    retry: 1,
+  });
+
+  const catalogsQuery = useQuery({
+    queryKey: ["finance-catalogs"],
+    queryFn: async () => (await api.get("/finanzas/catalogos")).data,
     retry: 1,
   });
 
@@ -128,7 +135,7 @@ export function FinancePanel() {
     const term = search.trim().toLowerCase();
     if (!term) return movements;
     return movements.filter((item) =>
-      [item.concepto, item.descripcion, item.cliente, item.numero_expediente, item.caratula, item.estado_pago]
+      [item.concepto, item.descripcion, item.cliente, item.numero_expediente, item.caratula, item.estado_pago, item.tipo_movimiento, item.categoria_financiera]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -161,15 +168,26 @@ export function FinancePanel() {
       if (name === "cuotas_total" && Number(next.cuota_numero) > Number(value || 1)) {
         next.cuota_numero = value || 1;
       }
+      if (name === "tipo_movimiento_id") {
+        next.categoria_financiera_id = "";
+        const selectedType = catalogsQuery.data?.movementTypes?.find((type) => String(type.id) === String(value));
+        if (selectedType && isOutgoingType(selectedType.slug)) {
+          next.estado_pago = "Pagado";
+          next.cuotas_total = 1;
+          next.cuota_numero = 1;
+          next.porcentaje_interes = 0;
+          next.monto_cuota = next.monto || "";
+        }
+      }
       return next;
     });
     setErrors((current) => ({ ...current, [name]: undefined }));
   }
 
   function handleFilterChange(event) {
-    const { name, value } = event.target;
+    const { name, value, type, checked } = event.target;
     setFilters((current) => {
-      const next = { ...current, [name]: value };
+      const next = { ...current, [name]: type === "checkbox" ? checked : value };
       if (name === "cliente_id") {
         const selectedCase = casesQuery.data?.find((caseItem) => String(caseItem.id) === String(next.expediente_id));
         if (selectedCase && String(selectedCase.cliente_principal_id) !== String(value)) {
@@ -292,6 +310,8 @@ export function FinancePanel() {
           form={form}
           clients={clientsQuery.data || []}
           cases={casesQuery.data || []}
+          movementTypes={catalogsQuery.data?.movementTypes || []}
+          categories={catalogsQuery.data?.categories || []}
           paymentStates={paymentStates}
           errors={errors}
           isEditing={Boolean(editingMovementId)}
@@ -346,4 +366,8 @@ function inferInterestPercentage(movement) {
   const installmentAmount = Number(movement.monto_cuota || 0);
   if (!principal || installments <= 1 || !installmentAmount) return 0;
   return Number((((installmentAmount * installments) / principal - 1) * 100).toFixed(2));
+}
+
+function isOutgoingType(slug) {
+  return ["gasto", "cuenta_por_pagar"].includes(String(slug || "").toLowerCase());
 }

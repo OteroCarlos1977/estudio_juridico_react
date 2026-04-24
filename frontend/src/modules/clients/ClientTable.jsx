@@ -1,5 +1,8 @@
 import { Edit3, Eye, Plus, Trash2 } from "lucide-react";
+import { Stack } from "react-bootstrap";
+import { DataTable } from "../../ui/DataTable";
 import { QueryState } from "../../ui/QueryState";
+import { TableActionsDropdown } from "../../ui/TableActionsDropdown";
 import { formatClientName, formatLocation } from "./clientUtils";
 
 export function ClientTable({ clients, search, selectedClientId, isLoading, isError, onSearchChange, onCreate, onEdit, onView, onDelete }) {
@@ -19,10 +22,10 @@ export function ClientTable({ clients, search, selectedClientId, isLoading, isEr
   );
 
   return (
-    <section className="panel">
+    <section className="panel" style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
       <div className="panel-title split">
         <h2>Clientes activos</h2>
-        <div className="panel-actions">
+        <Stack direction="horizontal" gap={2} className="panel-actions">
           <label className="search-box">
             Buscar
             <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Nombre, DNI, email" />
@@ -31,12 +34,11 @@ export function ClientTable({ clients, search, selectedClientId, isLoading, isEr
             <Plus size={17} />
             Nuevo
           </button>
-        </div>
+        </Stack>
       </div>
 
       <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando clientes..." errorText="No se pudieron cargar los clientes." />
-      {!isLoading && !isError && <div className="table-wrap">
-        <table>
+      {!isLoading && !isError && <DataTable maxHeight="40vh">
           <thead>
             <tr>
               <th>Cliente</th>
@@ -44,7 +46,7 @@ export function ClientTable({ clients, search, selectedClientId, isLoading, isEr
               <th>Telefono</th>
               <th>Email</th>
               <th>Localidad</th>
-              <th>Acciones</th>
+              <th className="actions-cell">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -55,21 +57,15 @@ export function ClientTable({ clients, search, selectedClientId, isLoading, isEr
                 <td>{client.telefono || "-"}</td>
                 <td>{client.email || "-"}</td>
                 <td>{formatLocation(client)}</td>
-                <td>
-                  <div className="row-actions">
-                    <button className="row-button" type="button" onClick={() => onView(client.id)} title="Ver detalle">
-                      <Eye size={15} />
-                      Ver
-                    </button>
-                    <button className="row-button" type="button" onClick={() => onEdit(client.id)} title="Editar cliente">
-                      <Edit3 size={15} />
-                      Editar
-                    </button>
-                    <button className="row-button danger" type="button" onClick={() => onDelete(client)} title="Eliminar cliente">
-                      <Trash2 size={15} />
-                      Eliminar
-                    </button>
-                  </div>
+                <td className="actions-cell">
+                  <TableActionsDropdown
+                    label="Acciones del cliente"
+                    items={[
+                      { key: "view", label: "Ver", icon: <Eye size={15} />, onClick: () => onView(client.id) },
+                      { key: "edit", label: "Editar", icon: <Edit3 size={15} />, onClick: () => onEdit(client.id) },
+                      { key: "delete", label: "Eliminar", icon: <Trash2 size={15} />, onClick: () => onDelete(client), danger: true },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}
@@ -79,8 +75,7 @@ export function ClientTable({ clients, search, selectedClientId, isLoading, isEr
               </tr>
             )}
           </tbody>
-        </table>
-      </div>}
+      </DataTable>}
     </section>
   );
 }

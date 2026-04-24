@@ -49,6 +49,34 @@ const movementFields = [
   "observaciones",
 ];
 
+router.get("/catalogos", (req, res, next) => {
+  try {
+    const db = getDb();
+    const movementTypes = db
+      .prepare(
+        `SELECT id, nombre, slug
+        FROM tipos_movimiento_financiero
+        WHERE activo = 1
+        ORDER BY nombre ASC`
+      )
+      .all();
+
+    const categories = db
+      .prepare(
+        `SELECT c.id, c.nombre, c.tipo_movimiento_id, tm.slug AS tipo_movimiento_slug
+        FROM categorias_financieras c
+        LEFT JOIN tipos_movimiento_financiero tm ON tm.id = c.tipo_movimiento_id
+        WHERE c.activo = 1
+        ORDER BY c.nombre ASC`
+      )
+      .all();
+
+    res.json({ movementTypes, categories });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/movimientos", (req, res, next) => {
   try {
     const filters = parseListFilters(req.query);
@@ -60,6 +88,11 @@ router.get("/movimientos", (req, res, next) => {
           m.id,
           m.expediente_id,
           m.cliente_id,
+          m.tipo_movimiento_id,
+          tm.nombre AS tipo_movimiento,
+          tm.slug AS tipo_movimiento_slug,
+          m.categoria_financiera_id,
+          cf.nombre AS categoria_financiera,
           m.concepto,
           m.descripcion,
           m.fecha_movimiento,
@@ -78,6 +111,8 @@ router.get("/movimientos", (req, res, next) => {
           e.numero_expediente,
           e.caratula
         FROM movimientos_financieros m
+        LEFT JOIN tipos_movimiento_financiero tm ON tm.id = m.tipo_movimiento_id
+        LEFT JOIN categorias_financieras cf ON cf.id = m.categoria_financiera_id
         LEFT JOIN clientes c ON c.id = m.cliente_id
         LEFT JOIN expedientes e ON e.id = m.expediente_id
         ${whereSql}
@@ -330,10 +365,15 @@ function findMovementById(id) {
         COALESCE(m.cuotas_total, 1) AS cuotas_total,
         COALESCE(m.cuota_numero, 1) AS cuota_numero,
         m.porcentaje_interes,
+        tm.nombre AS tipo_movimiento,
+        tm.slug AS tipo_movimiento_slug,
+        cf.nombre AS categoria_financiera,
         COALESCE(c.razon_social, TRIM(COALESCE(c.apellido, '') || ', ' || COALESCE(c.nombre, ''))) AS cliente,
         e.numero_expediente,
         e.caratula
       FROM movimientos_financieros m
+      LEFT JOIN tipos_movimiento_financiero tm ON tm.id = m.tipo_movimiento_id
+      LEFT JOIN categorias_financieras cf ON cf.id = m.categoria_financiera_id
       LEFT JOIN clientes c ON c.id = m.cliente_id
       LEFT JOIN expedientes e ON e.id = m.expediente_id
       WHERE m.id = ? AND m.activo = 1`

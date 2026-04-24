@@ -4,6 +4,7 @@ import { Button, Modal } from "react-bootstrap";
 import { api } from "../../api/client";
 import { confirmDelete, showError, showSuccess } from "../../ui/alerts";
 import { downloadFile } from "../../ui/download";
+import { FormActionBar, ModalFormHeader } from "../../ui/FormLayout";
 import { AgendaForm } from "./AgendaForm";
 import { AgendaTable } from "./AgendaTable";
 
@@ -303,22 +304,17 @@ export function AgendaPanel() {
       {isMonthModalOpen && (
         <Modal show onHide={closeMonthModal} centered aria-labelledby="agenda-report-month-title">
           <Modal.Body>
-            <div className="panel-title split">
-              <h2 id="agenda-report-month-title">Reporte mensual</h2>
-              <Button variant="outline-secondary" className="icon-button close-detail-button" type="button" onClick={closeMonthModal} title="Cerrar">
-                X
-              </Button>
-            </div>
+            <ModalFormHeader title="Reporte mensual" titleId="agenda-report-month-title" onClose={closeMonthModal} />
             <form className="client-form modal-form agenda-report-month-form" onSubmit={(event) => { event.preventDefault(); if (selectedReportMonth) downloadAgendaReport(selectedReportMonth); }}>
               <label className="form-wide">
                 Mes
                 <input type="month" value={selectedReportMonth} onChange={(event) => setSelectedReportMonth(event.target.value)} />
               </label>
-              <div className="form-actions form-wide">
+              <FormActionBar>
                 <button className="primary-button" type="submit" disabled={!selectedReportMonth}>
                   Descargar PDF
                 </button>
-              </div>
+              </FormActionBar>
             </form>
           </Modal.Body>
         </Modal>

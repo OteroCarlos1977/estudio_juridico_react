@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Modal } from "react-bootstrap";
-import { Download, Edit3, Plus, Save, Trash2, X } from "lucide-react";
+import { Badge, Modal } from "react-bootstrap";
+import { Download, Edit3, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
 import { downloadFile } from "../../ui/download";
 import { confirmDelete, showError, showSuccess } from "../../ui/alerts";
+import { DataTable } from "../../ui/DataTable";
+import { FormCheckbox, FormField, FormSelect } from "../../ui/FormFields";
+import { FormActionBar, ModalFormHeader } from "../../ui/FormLayout";
 import { QueryState } from "../../ui/QueryState";
+import { TableActionsDropdown } from "../../ui/TableActionsDropdown";
 
 const emptyUserForm = {
   username: "",
@@ -142,7 +146,7 @@ export function SystemPanel({ currentUser }) {
 
   return (
     <>
-      <section className="panel">
+      <section className="panel" style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
         <div className="panel-title split">
           <h2>Sistema, usuarios y backups</h2>
           {isAdmin && (
@@ -160,9 +164,8 @@ export function SystemPanel({ currentUser }) {
         />
         {!isLoading && !isError && (
           <>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Usuario</th><th>Nombre</th><th>Email</th><th>Roles</th><th>Activo</th><th>Acciones</th></tr></thead>
+            <DataTable maxHeight="40vh">
+              <thead><tr><th>Usuario</th><th>Nombre</th><th>Email</th><th>Roles</th><th>Activo</th><th className="actions-cell">Acciones</th></tr></thead>
                 <tbody>
                   {(usersQuery.data || []).map((user) => (
                     <tr key={user.id}>
@@ -170,26 +173,26 @@ export function SystemPanel({ currentUser }) {
                       <td>{user.nombre || "-"}</td>
                       <td>{user.email || "-"}</td>
                       <td>{user.roles || "-"}</td>
-                      <td>{user.activo ? "Si" : "No"}</td>
                       <td>
+                        <Badge pill bg="light" text="dark" className={`status-pill ${user.activo ? "success" : "warning"}`}>
+                          {user.activo ? "Si" : "No"}
+                        </Badge>
+                      </td>
+                      <td className="actions-cell">
                         {isAdmin ? (
-                          <div className="row-actions">
-                          <button className="row-button" type="button" onClick={() => openEditUserModal(user)}>
-                            <Edit3 size={15} />
-                            Editar
-                          </button>
-                          <button className="row-button danger" type="button" onClick={() => deleteUser(user)}>
-                            <Trash2 size={15} />
-                            Eliminar
-                          </button>
-                          </div>
+                          <TableActionsDropdown
+                            label="Acciones del usuario"
+                            items={[
+                              { key: "edit", label: "Editar", icon: <Edit3 size={15} />, onClick: () => openEditUserModal(user) },
+                              { key: "delete", label: "Eliminar", icon: <Trash2 size={15} />, onClick: () => deleteUser(user), danger: true },
+                            ]}
+                          />
                         ) : "-"}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+            </DataTable>
             <section className="subsection-title">
               <div className="panel-title split">
                 <h2>Backups</h2>
@@ -201,21 +204,22 @@ export function SystemPanel({ currentUser }) {
                 )}
               </div>
             </section>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>Archivo</th><th>Fecha</th><th>Usuario</th><th>Acciones</th></tr></thead>
+            <DataTable maxHeight="32vh">
+                <thead><tr><th>Archivo</th><th>Fecha</th><th>Usuario</th><th className="actions-cell">Acciones</th></tr></thead>
                 <tbody>
                   {(backupsQuery.data || []).map((backup) => (
                     <tr key={backup.id || backup.archivo}>
                       <td>{backup.archivo}</td>
                       <td>{backup.fecha || "-"}</td>
                       <td>{backup.usuario || "-"}</td>
-                      <td>
+                      <td className="actions-cell">
                         {isAdmin ? (
-                          <button className="row-button" type="button" onClick={() => downloadBackup(backup.archivo)}>
-                            <Download size={15} />
-                            Descargar
-                          </button>
+                          <TableActionsDropdown
+                            label="Acciones del backup"
+                            items={[
+                              { key: "download", label: "Descargar", icon: <Download size={15} />, onClick: () => downloadBackup(backup.archivo) },
+                            ]}
+                          />
                         ) : "-"}
                       </td>
                     </tr>
@@ -224,8 +228,7 @@ export function SystemPanel({ currentUser }) {
                     <tr><td colSpan="4">No hay backups registrados.</td></tr>
                   )}
                 </tbody>
-              </table>
-            </div>
+            </DataTable>
           </>
         )}
       </section>
@@ -233,63 +236,38 @@ export function SystemPanel({ currentUser }) {
       {isUserModalOpen && (
         <Modal show onHide={closeUserModal} centered size="lg" aria-labelledby="user-form-title">
           <Modal.Body>
-            <div className="panel-title split">
-              <h2 id="user-form-title">{editingUserId ? "Editar usuario" : "Nuevo usuario"}</h2>
-              <Button variant="outline-secondary" className="icon-button close-detail-button" type="button" onClick={closeUserModal} title="Cerrar">
-                <X size={17} />
-              </Button>
-            </div>
+            <ModalFormHeader title={editingUserId ? "Editar usuario" : "Nuevo usuario"} titleId="user-form-title" onClose={closeUserModal} />
             <form className="client-form modal-form" onSubmit={handleSubmit} noValidate>
-              <Field label="Usuario" name="username" value={form.username} error={errors.username} onChange={handleChange} />
-              <Field label={editingUserId ? "Nueva contraseña" : "Contraseña"} name="password" type="password" value={form.password} error={errors.password} onChange={handleChange} />
-              <Field label="Nombre" name="nombre" value={form.nombre} onChange={handleChange} />
-              <Field label="Apellido" name="apellido" value={form.apellido} onChange={handleChange} />
-              <Field label="Nombre completo" name="nombre_completo" value={form.nombre_completo} onChange={handleChange} />
-              <Field label="Email" name="email" type="email" value={form.email} error={errors.email} onChange={handleChange} />
-              <label>
-                Rol
-                <select name="rol_id" value={form.rol_id} onChange={handleChange}>
-                  <option value="">Seleccionar</option>
-                  {(rolesQuery.data || []).map((role) => (
-                    <option key={role.id} value={role.id}>{role.nombre}</option>
-                  ))}
-                </select>
-                <ErrorText value={errors.rol_id} />
-              </label>
-              <label className="checkbox-field">
-                <input name="activo" type="checkbox" checked={form.activo} onChange={handleChange} />
+              <FormField label="Usuario" name="username" value={form.username} error={errors.username} onChange={handleChange} />
+              <FormField label={editingUserId ? "Nueva contraseña" : "Contraseña"} name="password" type="password" value={form.password} error={errors.password} onChange={handleChange} />
+              <FormField label="Nombre" name="nombre" value={form.nombre} onChange={handleChange} />
+              <FormField label="Apellido" name="apellido" value={form.apellido} onChange={handleChange} />
+              <FormField label="Nombre completo" name="nombre_completo" value={form.nombre_completo} onChange={handleChange} />
+              <FormField label="Email" name="email" type="email" value={form.email} error={errors.email} onChange={handleChange} />
+              <FormSelect
+                label="Rol"
+                name="rol_id"
+                value={form.rol_id}
+                error={errors.rol_id}
+                onChange={handleChange}
+                placeholder="Seleccionar"
+                options={(rolesQuery.data || []).map((role) => ({ value: role.id, label: role.nombre }))}
+              />
+              <FormCheckbox name="activo" checked={form.activo} onChange={handleChange}>
                 Activo
-              </label>
-              <div className="form-actions form-wide">
+              </FormCheckbox>
+              <FormActionBar>
                 <button className="primary-button" type="submit" disabled={saveUserMutation.isPending}>
                   <Save size={17} />
                   Guardar
                 </button>
-                <button className="secondary-button close-text-button" type="button" onClick={closeUserModal}>
-                  <X size={17} />
-                  Cancelar
-                </button>
-              </div>
+              </FormActionBar>
             </form>
           </Modal.Body>
         </Modal>
       )}
     </>
   );
-}
-
-function Field({ label, name, value, error, onChange, type = "text" }) {
-  return (
-    <label>
-      {label}
-      <input name={name} type={type} value={value} onChange={onChange} />
-      <ErrorText value={error} />
-    </label>
-  );
-}
-
-function ErrorText({ value }) {
-  return value?.length ? <span className="error-text">{value[0]}</span> : null;
 }
 
 function normalizeUserInput(name, value) {

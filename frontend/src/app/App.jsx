@@ -31,14 +31,19 @@ function getHashSection() {
 function App() {
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState(getHashSection);
-  const [token, setToken] = useState("");
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loginError, setLoginError] = useState("");
+  const [token, setToken] = useState(() => localStorage.getItem("auth_token") || "");
+  const [currentUser, setCurrentUser] = useState(() => {
+    const storedUser = localStorage.getItem("auth_user");
+    if (!storedUser) return null;
 
-  useEffect(() => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
-  }, []);
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      localStorage.removeItem("auth_user");
+      return null;
+    }
+  });
+  const [loginError, setLoginError] = useState("");
 
   useEffect(() => {
     setAuthToken(token);
@@ -124,6 +129,8 @@ function App() {
   const loginMutation = useMutation({
     mutationFn: async (credentials) => (await api.post("/auth/login", credentials)).data,
     onSuccess: (data) => {
+      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("auth_user", JSON.stringify(data.user));
       setToken(data.token);
       setCurrentUser(data.user);
       setLoginError("");

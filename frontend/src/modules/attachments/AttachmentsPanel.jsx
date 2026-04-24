@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Modal } from "react-bootstrap";
-import { Download, Eye, Plus, Save, Trash2, X } from "lucide-react";
+import { Download, Eye, Plus, Save, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
 import { confirmDelete, showError, showSuccess } from "../../ui/alerts";
 import { viewAttachmentFile } from "../../ui/attachmentViewer";
 import { downloadFile } from "../../ui/download";
+import { FormActionBar, ModalFormHeader } from "../../ui/FormLayout";
+import { FormError, FormField, FormSelect, FormTextarea } from "../../ui/FormFields";
+import { DataTable } from "../../ui/DataTable";
 import { QueryState } from "../../ui/QueryState";
+import { TableActionsDropdown } from "../../ui/TableActionsDropdown";
 
 const emptyAttachmentForm = {
   archivo: null,
@@ -179,7 +183,7 @@ export function AttachmentsPanel() {
 
   return (
     <>
-      <section className="panel">
+      <section className="panel" style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" }}>
         <div className="panel-title split">
           <h2>Adjuntos</h2>
           <button className="primary-button" type="button" onClick={openModal}>
@@ -195,8 +199,7 @@ export function AttachmentsPanel() {
           errorText="No se pudieron cargar los adjuntos."
         />
         {!attachmentsQuery.isLoading && !attachmentsQuery.isError && (
-          <div className="table-wrap">
-            <table>
+          <DataTable maxHeight="40vh">
               <thead>
                 <tr>
                   <th>Archivo</th>
@@ -205,7 +208,7 @@ export function AttachmentsPanel() {
                   <th>Asociacion</th>
                   <th>Tamano</th>
                   <th>Fecha</th>
-                  <th>Acciones</th>
+                  <th className="actions-cell">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -217,21 +220,15 @@ export function AttachmentsPanel() {
                     <td>{formatAssociation(item)}</td>
                     <td>{formatSize(item.tamano_bytes)}</td>
                     <td>{item.fecha_documento || item.created_at || "-"}</td>
-                    <td>
-                      <div className="row-actions">
-                        <button className="row-button" type="button" onClick={() => viewAttachmentFile(item)}>
-                          <Eye size={15} />
-                          Ver
-                        </button>
-                        <button className="row-button" type="button" onClick={() => downloadAttachment(item)}>
-                          <Download size={15} />
-                          Descargar
-                        </button>
-                        <button className="row-button danger" type="button" onClick={() => deleteAttachment(item)}>
-                          <Trash2 size={15} />
-                          Eliminar
-                        </button>
-                      </div>
+                    <td className="actions-cell">
+                      <TableActionsDropdown
+                        label="Acciones del adjunto"
+                        items={[
+                          { key: "view", label: "Ver", icon: <Eye size={15} />, onClick: () => viewAttachmentFile(item) },
+                          { key: "download", label: "Descargar", icon: <Download size={15} />, onClick: () => downloadAttachment(item) },
+                          { key: "delete", label: "Eliminar", icon: <Trash2 size={15} />, onClick: () => deleteAttachment(item), danger: true },
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -241,20 +238,14 @@ export function AttachmentsPanel() {
                   </tr>
                 )}
               </tbody>
-            </table>
-          </div>
+          </DataTable>
         )}
       </section>
 
       {isModalOpen && (
         <Modal show onHide={closeModal} centered size="xl" aria-labelledby="attachment-form-title">
           <Modal.Body>
-            <div className="panel-title split">
-              <h2 id="attachment-form-title">Nuevo adjunto</h2>
-              <Button variant="outline-secondary" className="icon-button close-detail-button" type="button" onClick={closeModal} title="Cerrar">
-                <X size={17} />
-              </Button>
-            </div>
+            <ModalFormHeader title="Nuevo adjunto" titleId="attachment-form-title" onClose={closeModal} />
             <QueryState
               isLoading={optionQueriesLoading}
               isError={optionQueriesError}
@@ -266,72 +257,61 @@ export function AttachmentsPanel() {
                 <label className="form-wide">
                   Archivo
                   <input name="archivo" type="file" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.bmp,.doc,.docx,.rtf,.odt" onChange={handleChange} />
-                  <ErrorText value={errors.archivo} />
+                  <FormError value={errors.archivo} />
                 </label>
-                <label>
-                  Cliente
-                  <select name="cliente_id" value={form.cliente_id} onChange={handleChange}>
-                    <option value="">Sin cliente</option>
-                    {(clientsQuery.data || []).map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.razon_social || [client.apellido, client.nombre].filter(Boolean).join(", ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Expediente
-                  <select name="expediente_id" value={form.expediente_id} onChange={handleChange}>
-                    <option value="">Sin expediente</option>
-                    {filteredCases.map((caseItem) => (
-                      <option key={caseItem.id} value={caseItem.id}>
-                        {[caseItem.numero_expediente, caseItem.caratula].filter(Boolean).join(" - ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Actuacion
-                  <select name="actuacion_id" value={form.actuacion_id} onChange={handleChange}>
-                    <option value="">Sin actuacion</option>
-                    {filteredActions.map((action) => (
-                      <option key={action.id} value={action.id}>
-                        {[action.fecha_vencimiento || action.fecha_evento, action.titulo || action.descripcion].filter(Boolean).join(" - ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Movimiento
-                  <select name="movimiento_financiero_id" value={form.movimiento_financiero_id} onChange={handleChange}>
-                    <option value="">Sin movimiento</option>
-                    {filteredMovements.map((movement) => (
-                      <option key={movement.id} value={movement.id}>
-                        {[movement.fecha_movimiento, movement.concepto].filter(Boolean).join(" - ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Fecha documento
-                  <input name="fecha_documento" type="date" value={form.fecha_documento} onChange={handleChange} />
-                  <ErrorText value={errors.fecha_documento} />
-                </label>
-                <label className="form-wide">
-                  Descripcion
-                  <textarea name="descripcion" rows="3" value={form.descripcion} onChange={handleChange} />
-                </label>
-                <ErrorText value={errors.association} />
-                <div className="form-actions form-wide">
+                <FormSelect
+                  label="Cliente"
+                  name="cliente_id"
+                  value={form.cliente_id}
+                  onChange={handleChange}
+                  placeholder="Sin cliente"
+                  options={(clientsQuery.data || []).map((client) => ({
+                    value: client.id,
+                    label: client.razon_social || [client.apellido, client.nombre].filter(Boolean).join(", "),
+                  }))}
+                />
+                <FormSelect
+                  label="Expediente"
+                  name="expediente_id"
+                  value={form.expediente_id}
+                  onChange={handleChange}
+                  placeholder="Sin expediente"
+                  options={filteredCases.map((caseItem) => ({
+                    value: caseItem.id,
+                    label: [caseItem.numero_expediente, caseItem.caratula].filter(Boolean).join(" - "),
+                  }))}
+                />
+                <FormSelect
+                  label="Actuacion"
+                  name="actuacion_id"
+                  value={form.actuacion_id}
+                  onChange={handleChange}
+                  placeholder="Sin actuacion"
+                  options={filteredActions.map((action) => ({
+                    value: action.id,
+                    label: [action.fecha_vencimiento || action.fecha_evento, action.titulo || action.descripcion].filter(Boolean).join(" - "),
+                  }))}
+                />
+                <FormSelect
+                  label="Movimiento"
+                  name="movimiento_financiero_id"
+                  value={form.movimiento_financiero_id}
+                  onChange={handleChange}
+                  placeholder="Sin movimiento"
+                  options={filteredMovements.map((movement) => ({
+                    value: movement.id,
+                    label: [movement.fecha_movimiento, movement.concepto].filter(Boolean).join(" - "),
+                  }))}
+                />
+                <FormField label="Fecha documento" name="fecha_documento" type="date" value={form.fecha_documento} error={errors.fecha_documento} onChange={handleChange} />
+                <FormTextarea className="form-wide" label="Descripcion" name="descripcion" rows={3} value={form.descripcion} onChange={handleChange} />
+                <FormError value={errors.association} />
+                <FormActionBar>
                   <button className="primary-button" type="submit" disabled={uploadMutation.isPending}>
                     <Save size={17} />
                     {uploadMutation.isPending ? "Guardando" : "Guardar"}
                   </button>
-                  <button className="secondary-button close-text-button" type="button" onClick={closeModal}>
-                    <X size={17} />
-                    Cancelar
-                  </button>
-                </div>
+                </FormActionBar>
               </form>
             )}
           </Modal.Body>
@@ -405,8 +385,4 @@ function formatSize(bytes) {
   if (value < 1024) return `${value} bytes`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function ErrorText({ value }) {
-  return value?.length ? <span className="error-text form-wide">{value[0]}</span> : null;
 }

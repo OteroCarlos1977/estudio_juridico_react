@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Modal } from "react-bootstrap";
+import { Modal } from "react-bootstrap";
 import { api } from "../../api/client";
 import { confirmDelete, showError, showSuccess } from "../../ui/alerts";
+import { ModalFormHeader } from "../../ui/FormLayout";
 import { ClientDetail } from "./ClientDetail";
 import { ClientForm } from "./ClientForm";
 import { ClientTable } from "./ClientTable";
@@ -179,6 +180,11 @@ export function ClientsPanel() {
       {isClientModalOpen && (
         <Modal show onHide={closeClientModal} centered size="xl" aria-labelledby="client-modal-title">
           <Modal.Body>
+            <ModalFormHeader
+              title={editingClientId ? "Editar cliente" : "Nuevo cliente"}
+              titleId="client-modal-title"
+              onClose={closeClientModal}
+            />
             <ClientForm
               form={clientForm}
               errors={clientFormErrors}
@@ -187,17 +193,13 @@ export function ClientsPanel() {
               message={clientFormMessage}
               isError={saveClientMutation.isError}
               showNewButton={false}
+              showHeader={false}
               surface="modal"
               titleId="client-modal-title"
               onChange={handleClientFieldChange}
               onSubmit={handleClientSubmit}
               onReset={startNewClient}
             />
-            <div className="form-actions modal-actions">
-              <Button variant="outline-secondary" type="button" onClick={closeClientModal}>
-                Cancelar
-              </Button>
-            </div>
           </Modal.Body>
         </Modal>
       )}

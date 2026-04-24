@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { Col, Row, Stack } from "react-bootstrap";
 import { formatClientName, formatLocation } from "./clientUtils";
 
 export function ClientDetail({ client, onClose }) {
@@ -10,32 +11,41 @@ export function ClientDetail({ client, onClose }) {
     <section className="panel">
       <div className="panel-title split">
         <h2>Detalle de cliente</h2>
-        <button className="icon-button close-detail-button" type="button" onClick={onClose} title="Cerrar detalle">
-          <X size={17} />
-        </button>
+        <Stack direction="horizontal" gap={2} className="panel-actions">
+          <button className="icon-button close-detail-button" type="button" onClick={onClose} title="Cerrar detalle">
+            <X size={17} />
+          </button>
+        </Stack>
       </div>
-      <dl className="details compact-details">
-        <div>
-          <dt>Cliente</dt>
-          <dd>{formatClientName(client)}</dd>
-        </div>
-        <div>
-          <dt>DNI/CUIT</dt>
-          <dd>{client.dni_cuit || "-"}</dd>
-        </div>
-        <div>
-          <dt>Contacto</dt>
-          <dd>{[client.telefono, client.email].filter(Boolean).join(" / ") || "-"}</dd>
-        </div>
-        <div>
-          <dt>Domicilio</dt>
-          <dd>{[client.domicilio, formatLocation(client), client.codigo_postal].filter((item) => item && item !== "-").join(" / ") || "-"}</dd>
-        </div>
-        <div>
-          <dt>Observaciones</dt>
-          <dd>{client.observaciones || "-"}</dd>
-        </div>
-      </dl>
+      <Row className="detail-row-grid g-3">
+        <Col md={6}>
+          <DetailItem label="Cliente" value={formatClientName(client)} />
+        </Col>
+        <Col md={6}>
+          <DetailItem label="DNI/CUIT" value={client.dni_cuit || "-"} />
+        </Col>
+        <Col md={6}>
+          <DetailItem label="Contacto" value={[client.telefono, client.email].filter(Boolean).join(" / ") || "-"} />
+        </Col>
+        <Col md={6}>
+          <DetailItem
+            label="Domicilio"
+            value={[client.domicilio, formatLocation(client), client.codigo_postal].filter((item) => item && item !== "-").join(" / ") || "-"}
+          />
+        </Col>
+        <Col xs={12}>
+          <DetailItem label="Observaciones" value={client.observaciones || "-"} />
+        </Col>
+      </Row>
     </section>
+  );
+}
+
+function DetailItem({ label, value }) {
+  return (
+    <div className="detail-item">
+      <span className="detail-label">{label}</span>
+      <div className="detail-value">{value}</div>
+    </div>
   );
 }
