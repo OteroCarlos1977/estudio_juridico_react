@@ -330,7 +330,12 @@ function normalizeText(value) {
 }
 
 function isIsoDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function currentTimestamp() {
@@ -344,5 +349,15 @@ function httpError(status, code, message, details) {
   err.details = details;
   return err;
 }
+
+router.__test = {
+  assertHasAssociation,
+  buildListWhere,
+  isIsoDate,
+  normalizePayload,
+  parseAttachmentPayload,
+  parseId,
+  parseListFilters,
+};
 
 module.exports = router;
