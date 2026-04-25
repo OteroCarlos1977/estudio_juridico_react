@@ -1,8 +1,6 @@
 const express = require("express");
 const { z } = require("zod");
 const { getDb } = require("../../db/database");
-const { buildExcelReport, buildPdfReport } = require("../../reportUtils");
-
 const router = express.Router();
 
 const allowedPaymentStates = ["Pendiente", "Pagado", "Vencido", "Cancelado", "Cobrado"];
@@ -161,6 +159,9 @@ router.get("/reportes/finanzas.:formato", (req, res, next) => {
           COALESCE(c.razon_social, TRIM(COALESCE(c.apellido, '') || ', ' || COALESCE(c.nombre, ''))) AS cliente,
           COALESCE(e.numero_expediente, e.caratula, '') AS expediente,
           m.estado_pago,
+          tm.nombre AS tipo_movimiento,
+          tm.slug AS tipo_movimiento_slug,
+          cf.nombre AS categoria_financiera,
           m.moneda,
           m.monto,
           COALESCE(m.monto_cuota, m.monto) AS monto_cuota,
@@ -170,6 +171,8 @@ router.get("/reportes/finanzas.:formato", (req, res, next) => {
           m.medio_pago,
           m.comprobante_numero
         FROM movimientos_financieros m
+        LEFT JOIN tipos_movimiento_financiero tm ON tm.id = m.tipo_movimiento_id
+        LEFT JOIN categorias_financieras cf ON cf.id = m.categoria_financiera_id
         LEFT JOIN clientes c ON c.id = m.cliente_id
         LEFT JOIN expedientes e ON e.id = m.expediente_id
         ${whereSql}
@@ -177,39 +180,19 @@ router.get("/reportes/finanzas.:formato", (req, res, next) => {
       )
       .all(params);
 
-    const report = {
-      title: `Finanzas ${filters.desde} al ${filters.hasta}`,
-      headers: [
-        "fecha_movimiento",
-        "fecha_vencimiento",
-        "concepto",
-        "cliente",
-        "expediente",
-        "estado_pago",
-        "moneda",
-        "monto",
-        "monto_cuota",
-        "cuota_numero",
-        "cuotas_total",
-        "porcentaje_interes",
-        "medio_pago",
-        "comprobante_numero",
-      ],
-      rows,
-      generatedAt: new Date(),
-    };
+    const report = buildFinanceReportModel(rows, filters);
 
-    const filename = `finanzas_${filters.desde}_${filters.hasta}.${format}`;
+    const filename = `${buildFinanceReportFileBase(filters)}_${filters.desde}_${filters.hasta}.${format}`;
     if (format === "pdf") {
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.send(buildPdfReport(report));
+      res.send(buildFinancePdfReport(report));
       return;
     }
 
     res.setHeader("Content-Type", "application/vnd.ms-excel; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.send(buildExcelReport(report));
+    res.send(buildFinanceExcelReport(report));
   } catch (err) {
     next(err);
   }
@@ -230,6 +213,7 @@ router.get("/movimientos/:id", (req, res, next) => {
 router.post("/movimientos", (req, res, next) => {
   try {
     const payload = parseMovementPayload(req.body);
+    applySettlementDate(current, payload);
     assertRelations(payload);
     const now = currentTimestamp();
     const result = getDb()
@@ -434,33 +418,38 @@ function parseFinanceReportFilters(query) {
   const lastDate = new Date(`${month}-01T00:00:00`);
   lastDate.setMonth(lastDate.getMonth() + 1);
   lastDate.setDate(0);
+  const reportType = normalizeFinanceReportType(query.tipo_reporte);
 
   return {
     desde: normalizeText(query.fecha_desde) || first,
     hasta: normalizeText(query.fecha_hasta) || lastDate.toISOString().slice(0, 10),
     estado_pago: String(query.estado_pago || "todos"),
-    vencimiento: String(query.vencimiento || "todos"),
+    tipo_reporte: reportType,
     cliente_id: query.cliente_id ? parseId(query.cliente_id, "INVALID_CLIENT_ID") : null,
     expediente_id: query.expediente_id ? parseId(query.expediente_id, "INVALID_CASE_ID") : null,
   };
+}
+
+function normalizeFinanceReportType(value) {
+  const reportType = String(value || "general");
+  return ["general", "income", "payments", "receivable", "payment_plans"].includes(reportType) ? reportType : "general";
 }
 
 function buildFinanceReportWhere(filters) {
   const clauses = ["m.activo = 1"];
   const params = { desde: filters.desde, hasta: filters.hasta };
 
-  clauses.push("m.fecha_movimiento >= @desde");
-  clauses.push("m.fecha_movimiento <= @hasta");
+  if (["receivable", "payment_plans"].includes(filters.tipo_reporte)) {
+    clauses.push("COALESCE(NULLIF(m.fecha_vencimiento, ''), m.fecha_movimiento) >= @desde");
+    clauses.push("COALESCE(NULLIF(m.fecha_vencimiento, ''), m.fecha_movimiento) <= @hasta");
+  } else {
+    clauses.push("m.fecha_movimiento >= @desde");
+    clauses.push("m.fecha_movimiento <= @hasta");
+  }
 
   if (filters.estado_pago !== "todos") {
     clauses.push("LOWER(m.estado_pago) = LOWER(@estado_pago)");
     params.estado_pago = filters.estado_pago;
-  }
-
-  if (filters.vencimiento === "actuales_anteriores") {
-    clauses.push("m.fecha_vencimiento IS NOT NULL AND m.fecha_vencimiento <> '' AND m.fecha_vencimiento <= date('now')");
-  } else if (filters.vencimiento === "futuros") {
-    clauses.push("m.fecha_vencimiento IS NOT NULL AND m.fecha_vencimiento <> '' AND m.fecha_vencimiento > date('now')");
   }
 
   if (filters.cliente_id) {
@@ -477,6 +466,524 @@ function buildFinanceReportWhere(filters) {
     whereSql: `WHERE ${clauses.join(" AND ")}`,
     params,
   };
+}
+
+function buildFinanceReportModel(rows, filters) {
+  const reportRows = filters.tipo_reporte === "payment_plans" ? buildPaymentPlanRows(rows) : rows;
+  const sections = [
+    { key: "payments", title: "Pagos", rows: [], includeInGeneral: true },
+    { key: "income", title: "Ingresos", rows: [], includeInGeneral: true },
+    { key: "receivable", title: "Por cobrar", rows: [], includeInGeneral: true },
+    { key: "overdue", title: "Cobros vencidos", rows: [], includeInGeneral: true },
+    { key: "payment_plans", title: "Planes de pago", rows: [], includeInGeneral: false },
+  ];
+  const sectionMap = new Map(sections.map((section) => [section.key, section]));
+
+  reportRows.forEach((row) => {
+    const key = filters.tipo_reporte === "payment_plans" ? classifyPaymentPlanReportRow(row) : classifyFinanceReportRow(row);
+    if (filters.tipo_reporte === "receivable" && !["receivable", "overdue"].includes(key)) return;
+    if (!["general", "receivable"].includes(filters.tipo_reporte) && filters.tipo_reporte !== key) return;
+    sectionMap.get(key).rows.push(row);
+  });
+
+  const visibleSections = filters.tipo_reporte === "general"
+    ? sections.filter((section) => section.includeInGeneral)
+    : filters.tipo_reporte === "receivable"
+      ? sections.filter((section) => ["receivable", "overdue"].includes(section.key))
+    : sections.filter((section) => section.key === filters.tipo_reporte);
+  const normalizedSections = visibleSections.map((section) => ({
+    ...section,
+    totals: filters.tipo_reporte === "payment_plans" ? buildPaymentPlanTotals(section.rows) : sumByCurrency(section.rows),
+  }));
+  const incomeTotals = normalizedSections.find((section) => section.key === "income")?.totals || {};
+  const paymentTotals = normalizedSections.find((section) => section.key === "payments")?.totals || {};
+
+  return {
+    title: buildFinanceReportTitle(filters),
+    period: `${filters.desde} al ${filters.hasta}`,
+    sections: normalizedSections,
+    balance: filters.tipo_reporte === "general" ? calculateBalance(incomeTotals, paymentTotals) : null,
+    generatedAt: new Date(),
+  };
+}
+
+function classifyFinanceReportRow(row) {
+  const state = normalizeState(row.estado_pago);
+  const slug = String(row.tipo_movimiento_slug || "").toLowerCase();
+
+  if (["gasto", "cuenta_por_pagar"].includes(slug)) {
+    return "payments";
+  }
+
+  if (["pagado", "cobrado"].includes(state)) {
+    return "income";
+  }
+
+  if (isReceivableOverdue(row)) {
+    return "overdue";
+  }
+
+  return "receivable";
+}
+
+function classifyPaymentPlanReportRow(row) {
+  return Number(row.cuotas_total || 1) > 1 ? "payment_plans" : classifyFinanceReportRow(row);
+}
+
+function normalizeState(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isUnsettledState(state) {
+  return !["pagado", "cobrado", "cancelado"].includes(normalizeState(state));
+}
+
+function isPastDate(value) {
+  if (!value) return false;
+  return String(value).slice(0, 10) < new Date().toISOString().slice(0, 10);
+}
+
+function isReceivableOverdue(row) {
+  const state = normalizeState(row.estado_pago);
+  const dueDate = row.fecha_vencimiento || row.fecha_movimiento;
+  return state === "vencido" || (state === "pendiente" && isPastDate(dueDate));
+}
+
+function buildPaymentPlanRows(rows) {
+  const planRows = rows
+    .filter((row) => Number(row.cuotas_total || 1) > 1)
+    .map((row) => {
+      const state = normalizeState(row.estado_pago);
+      const installmentAmount = Number(row.monto_cuota || row.monto || 0);
+      const totalInstallments = Number(row.cuotas_total || 1);
+      const currentInstallment = Number(row.cuota_numero || 1);
+      const paidInstallments = ["pagado", "cobrado"].includes(state) ? 1 : 0;
+      const overdueInstallments = isUnsettledState(state) && isPastDate(row.fecha_vencimiento || row.fecha_movimiento) ? 1 : 0;
+      const pendingInstallments = isUnsettledState(state) && !overdueInstallments ? 1 : 0;
+
+      return {
+        ...row,
+        plan_concepto: formatPlanConcept(row.concepto),
+        total_plan: Number(row.monto || installmentAmount * totalInstallments || 0),
+        monto_pendiente: isUnsettledState(state) ? installmentAmount : 0,
+        cuotas_cobradas: paidInstallments,
+        cuotas_pendientes: pendingInstallments,
+        cuotas_vencidas: overdueInstallments,
+        seguimiento_estado: overdueInstallments ? "Vencida" : paidInstallments ? "Cobrada" : "Pendiente",
+        progreso_plan: `${currentInstallment}/${totalInstallments}`,
+      };
+    });
+
+  return planRows.sort((a, b) => {
+    const byClient = String(a.cliente || "").localeCompare(String(b.cliente || ""), "es");
+    if (byClient !== 0) return byClient;
+    const byCase = String(a.expediente || "").localeCompare(String(b.expediente || ""), "es");
+    if (byCase !== 0) return byCase;
+    return Number(a.cuota_numero || 0) - Number(b.cuota_numero || 0);
+  });
+}
+
+function buildPaymentPlanTotals(rows) {
+  return rows.reduce((totals, row) => {
+    const currency = row.moneda || "ARS";
+    const current = totals[currency] || {
+      total: 0,
+      pending: 0,
+      collected: 0,
+      overdue: 0,
+      rows: 0,
+      paidInstallments: 0,
+      pendingInstallments: 0,
+      overdueInstallments: 0,
+    };
+    const installmentAmount = Number(row.monto_cuota || row.monto || 0);
+    current.total += installmentAmount;
+    current.pending += Number(row.monto_pendiente || 0);
+    if (row.seguimiento_estado === "Cobrada") current.collected += installmentAmount;
+    if (row.seguimiento_estado === "Vencida") current.overdue += installmentAmount;
+    current.rows += 1;
+    current.paidInstallments += Number(row.cuotas_cobradas || 0);
+    current.pendingInstallments += Number(row.cuotas_pendientes || 0);
+    current.overdueInstallments += Number(row.cuotas_vencidas || 0);
+    totals[currency] = current;
+    return totals;
+  }, {});
+}
+
+function formatPlanConcept(value) {
+  return String(value || "").replace(/\s+-\s+cuota\s+\d+\s*\/\s*\d+\s*$/i, "").trim();
+}
+
+function sumByCurrency(rows) {
+  return rows.reduce((totals, row) => {
+    const currency = row.moneda || "ARS";
+    totals[currency] = Number((Number(totals[currency] || 0) + Number(row.monto_cuota || row.monto || 0)).toFixed(2));
+    return totals;
+  }, {});
+}
+
+function calculateBalance(incomeTotals, paymentTotals) {
+  const currencies = new Set([...Object.keys(incomeTotals), ...Object.keys(paymentTotals)]);
+  return Array.from(currencies).reduce((balance, currency) => {
+    balance[currency] = Number((Number(incomeTotals[currency] || 0) - Number(paymentTotals[currency] || 0)).toFixed(2));
+    return balance;
+  }, {});
+}
+
+function buildFinanceReportTitle(filters) {
+  if (filters.tipo_reporte === "income") return "Reporte de Ingresos";
+  if (filters.tipo_reporte === "payments") return "Reporte de Pagos";
+  if (filters.tipo_reporte === "receivable") return "Reporte por Cobrar";
+  if (filters.tipo_reporte === "payment_plans") return "Reporte de Planes de Pago";
+  return "Reporte General de Finanzas";
+}
+
+function buildFinanceReportFileBase(filters) {
+  if (filters.tipo_reporte === "income") return "finanzas_ingresos";
+  if (filters.tipo_reporte === "payments") return "finanzas_pagos";
+  if (filters.tipo_reporte === "receivable") return "finanzas_por_cobrar";
+  if (filters.tipo_reporte === "payment_plans") return "finanzas_planes_de_pago";
+  return "finanzas_general";
+}
+
+function buildFinanceExcelReport(report) {
+  const sectionHtml = report.sections.map((section) => buildFinanceExcelSection(section)).join("");
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; }
+    h1 { font-size: 18px; margin-bottom: 4px; }
+    h2 { font-size: 15px; margin: 18px 0 6px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+    th, td { border: 1px solid #999; padding: 6px; font-size: 12px; }
+    th { background: #dde3ec; font-weight: bold; }
+    .text-cell { mso-number-format: "\\@"; }
+    .subtotal td { background: #f3f6fb; font-weight: bold; }
+    .balance td { background: #e8f7ee; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>${htmlEscape(report.title)}</h1>
+  <p>Periodo: ${htmlEscape(report.period)}</p>
+  <p>Generado: ${htmlEscape(formatDateTime(report.generatedAt))}</p>
+  ${sectionHtml}
+  ${buildFinanceExcelBalance(report)}
+</body>
+</html>`;
+}
+
+function buildFinanceExcelSection(section) {
+  if (section.key === "payment_plans") {
+    return buildPaymentPlansExcelSection(section);
+  }
+
+  const rows = section.rows.map((row) => `<tr>
+    <td>${htmlEscape(row.fecha_movimiento)}</td>
+    <td>${htmlEscape(row.fecha_vencimiento)}</td>
+    <td>${htmlEscape(row.concepto)}</td>
+    <td>${htmlEscape(row.cliente)}</td>
+    <td class="text-cell">${htmlEscape(formatExcelText(formatInstallmentLabel(row)))}</td>
+    <td>${htmlEscape(row.estado_pago)}</td>
+    <td>${htmlEscape(row.moneda)}</td>
+    <td>${formatMoney(row.monto_cuota || row.monto, row.moneda)}</td>
+  </tr>`).join("");
+  const subtotalRows = Object.entries(section.totals)
+    .map(([currency, total]) => `<tr class="subtotal"><td colspan="7">Subtotal ${htmlEscape(section.title)} ${htmlEscape(currency)}</td><td>${formatMoney(total, currency)}</td></tr>`)
+    .join("");
+
+  return `<h2>${htmlEscape(section.title)}</h2>
+  <table>
+    <thead><tr><th>Fecha</th><th>Vencimiento</th><th>Concepto</th><th>Cliente</th><th>Cuota</th><th>Estado</th><th>Moneda</th><th>Monto cuota</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="8">Sin registros.</td></tr>`}${subtotalRows}</tbody>
+  </table>`;
+}
+
+function buildPaymentPlansExcelSection(section) {
+  const rows = section.rows.map((row) => `<tr>
+    <td>${htmlEscape(row.cliente)}</td>
+    <td>${htmlEscape(row.expediente)}</td>
+    <td>${htmlEscape(row.plan_concepto || row.concepto)}</td>
+    <td class="text-cell">${htmlEscape(formatExcelText(row.progreso_plan))}</td>
+    <td>${htmlEscape(row.fecha_vencimiento)}</td>
+    <td>${htmlEscape(row.seguimiento_estado)}</td>
+    <td>${formatMoney(row.monto_cuota || row.monto, row.moneda)}</td>
+    <td>${formatMoney(row.monto_pendiente, row.moneda)}</td>
+  </tr>`).join("");
+  const subtotalRows = Object.entries(section.totals)
+    .map(([currency, total]) => `<tr class="subtotal"><td colspan="6">Subtotal ${htmlEscape(currency)} - ${total.rows} cuotas | cobradas: ${total.paidInstallments} | pendientes: ${total.pendingInstallments} | vencidas: ${total.overdueInstallments}</td><td>${formatMoney(total.total, currency)}</td><td>${formatMoney(total.pending, currency)}</td></tr>`)
+    .join("");
+
+  return `<h2>${htmlEscape(section.title)}</h2>
+  <table>
+    <thead><tr><th>Cliente</th><th>Expediente</th><th>Concepto</th><th>Cuota</th><th>Vencimiento</th><th>Seguimiento</th><th>Monto cuota</th><th>Pendiente</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="8">Sin planes de pago para el periodo.</td></tr>`}${subtotalRows}</tbody>
+  </table>`;
+}
+
+function buildFinanceExcelBalance(report) {
+  if (!report.balance) return "";
+  return `<h2>Balance</h2>
+  <table>
+    <thead><tr><th>Moneda</th><th>Total ingresos - Total pagos</th></tr></thead>
+    <tbody>${Object.entries(report.balance).map(([currency, total]) => `<tr class="balance"><td>${htmlEscape(currency)}</td><td>${formatMoney(total, currency)}</td></tr>`).join("") || `<tr><td colspan="2">Sin balance para el periodo.</td></tr>`}</tbody>
+  </table>`;
+}
+
+function buildFinancePdfReport(report) {
+  const pageWidth = 842;
+  const pageHeight = 595;
+  const margin = 30;
+  const rowHeight = 20;
+  const colWidths = [58, 58, 190, 130, 58, 70, 100];
+  const pages = [];
+  let currentPage = [];
+
+  function pushLine(line) {
+    if (currentPage.length >= 22) {
+      pages.push(currentPage);
+      currentPage = [];
+    }
+    currentPage.push(line);
+  }
+
+  report.sections.forEach((section) => {
+    pushLine({ type: "section", values: [section.title] });
+    pushLine({
+      type: "header",
+      values: section.key === "payment_plans"
+        ? ["Vence", "Cuota", "Concepto", "Cliente", "Expte.", "Estado", "Pendiente"]
+        : ["Fecha", "Vence", "Concepto", "Cliente", "Cuota", "Estado", "Monto"],
+    });
+    if (section.rows.length === 0) {
+      pushLine({ type: "empty", values: ["Sin registros para esta seccion."] });
+    } else {
+      section.rows.forEach((row) => {
+        pushLine({
+          type: "row",
+          values: buildFinancePdfRowValues(section, row),
+        });
+      });
+    }
+    Object.entries(section.totals).forEach(([currency, total]) => {
+      pushLine({ type: "subtotal", values: buildFinanceSubtotalValues(section, currency, total) });
+    });
+    pushLine({ type: "space", values: [] });
+  });
+  if (report.balance) {
+    pushLine({ type: "section", values: ["Balance"] });
+    Object.entries(report.balance).forEach(([currency, total]) => {
+      pushLine({ type: "subtotal", values: [`${currency}`, formatMoney(total, currency)] });
+    });
+  }
+  if (currentPage.length > 0) pages.push(currentPage);
+
+  const objects = [];
+  const pageObjectNumbers = [];
+  const fontObjectNumber = 3;
+  objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objects[2] = null;
+  objects[fontObjectNumber] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+  pages.forEach((pageLines, pageIndex) => {
+    const pageObjectNumber = 4 + pageIndex * 2;
+    const contentObjectNumber = pageObjectNumber + 1;
+    pageObjectNumbers.push(pageObjectNumber);
+    const content = buildFinancePdfPage(report, pageLines, {
+      pageWidth,
+      pageHeight,
+      margin,
+      rowHeight,
+      colWidths,
+      pageIndex,
+      pageCount: pages.length,
+    });
+    objects[pageObjectNumber] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObjectNumber} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
+    objects[contentObjectNumber] = `<< /Length ${Buffer.byteLength(content, "latin1")} >>\nstream\n${content}\nendstream`;
+  });
+
+  objects[2] = `<< /Type /Pages /Kids [${pageObjectNumbers.map((number) => `${number} 0 R`).join(" ")}] /Count ${pageObjectNumbers.length} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (let index = 1; index < objects.length; index += 1) {
+    offsets[index] = Buffer.byteLength(pdf, "latin1");
+    pdf += `${index} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+  const xrefOffset = Buffer.byteLength(pdf, "latin1");
+  pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n`;
+  for (let index = 1; index < objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return Buffer.from(pdf, "latin1");
+}
+
+function buildFinancePdfRowValues(section, row) {
+  if (section.key === "payment_plans") {
+    return [
+      row.fecha_vencimiento || "",
+      row.progreso_plan || formatInstallmentLabel(row),
+      row.plan_concepto || row.concepto || "",
+      row.cliente || "",
+      row.expediente || "",
+      row.seguimiento_estado || row.estado_pago || "",
+      formatMoney(row.monto_pendiente, row.moneda),
+    ];
+  }
+
+  return [
+    row.fecha_movimiento || "",
+    row.fecha_vencimiento || "",
+    row.concepto || "",
+    row.cliente || "",
+    formatInstallmentLabel(row),
+    row.estado_pago || "",
+    formatMoney(row.monto_cuota || row.monto, row.moneda),
+  ];
+}
+
+function buildFinanceSubtotalValues(section, currency, total) {
+  if (section.key === "payment_plans") {
+    return [
+      `Subtotal ${currency} - cobradas ${total.paidInstallments}, pendientes ${total.pendingInstallments}, vencidas ${total.overdueInstallments}`,
+      formatMoney(total.pending, currency),
+    ];
+  }
+
+  return [`Subtotal ${section.title} ${currency}`, formatMoney(total, currency)];
+}
+
+function buildFinancePdfPage(report, lines, options) {
+  const { pageWidth, pageHeight, margin, rowHeight, colWidths, pageIndex, pageCount } = options;
+  const tableWidth = colWidths.reduce((total, width) => total + width, 0);
+  let y = pageHeight - margin;
+  const commands = [
+    "BT",
+    "/F1 15 Tf",
+    `${margin} ${y} Td`,
+    `(${pdfEscape(`${report.title} - ${report.period}`)}) Tj`,
+    "ET",
+  ];
+  y -= 20;
+  commands.push("BT", "/F1 8 Tf", `${margin} ${y} Td`, `(Generado: ${pdfEscape(formatDateTime(report.generatedAt))} - Pagina ${pageIndex + 1}/${pageCount}) Tj`, "ET");
+  y -= 24;
+
+  lines.forEach((line) => {
+    if (line.type === "space") {
+      y -= 8;
+      return;
+    }
+    if (line.type === "section") {
+      commands.push("0.13 0.20 0.32 rg", `${margin} ${y - 5} ${tableWidth} ${rowHeight} re`, "f");
+      commands.push("1 1 1 rg", "BT", "/F1 10 Tf", `${margin + 6} ${y + 2} Td`, `(${pdfEscape(line.values[0])}) Tj`, "ET");
+      y -= rowHeight;
+      return;
+    }
+    if (line.type === "empty") {
+      commands.push(...drawFinancePdfWideRow(line.values[0], y, margin, tableWidth, rowHeight, false));
+      y -= rowHeight;
+      return;
+    }
+    if (line.type === "subtotal") {
+      commands.push(...drawFinancePdfSubtotal(line.values, y, margin, tableWidth, rowHeight));
+      y -= rowHeight;
+      return;
+    }
+    commands.push(...drawFinancePdfRow(line.values, y, margin, colWidths, rowHeight, line.type === "header"));
+    y -= rowHeight;
+  });
+
+  return commands.join("\n");
+}
+
+function drawFinancePdfRow(values, y, left, colWidths, rowHeight, header) {
+  const commands = [];
+  if (header) {
+    commands.push("0.88 0.91 0.95 rg", `${left} ${y - 5} ${colWidths.reduce((total, width) => total + width, 0)} ${rowHeight} re`, "f");
+  }
+  commands.push("0 0 0 RG", "0 0 0 rg", "0.6 w");
+  let x = left;
+  values.forEach((value, index) => {
+    commands.push(`${x} ${y - 5} ${colWidths[index]} ${rowHeight} re`, "S");
+    commands.push("BT", `/F1 ${header ? 8 : 7} Tf`, `${x + 4} ${y + 2} Td`, `(${pdfEscape(truncatePdfText(value, index === 2 ? 36 : index === 3 ? 24 : 18))}) Tj`, "ET");
+    x += colWidths[index];
+  });
+  return commands;
+}
+
+function drawFinancePdfWideRow(value, y, left, width, rowHeight, filled) {
+  const commands = ["0 0 0 RG", "0 0 0 rg", "0.6 w"];
+  if (filled) commands.push("0.95 0.97 0.99 rg", `${left} ${y - 5} ${width} ${rowHeight} re`, "f");
+  commands.push(`${left} ${y - 5} ${width} ${rowHeight} re`, "S");
+  commands.push("BT", "/F1 8 Tf", `${left + 5} ${y + 2} Td`, `(${pdfEscape(truncatePdfText(value, 110))}) Tj`, "ET");
+  return commands;
+}
+
+function drawFinancePdfSubtotal(values, y, left, width, rowHeight) {
+  const amountWidth = 150;
+  const labelWidth = width - amountWidth;
+  const commands = ["0.93 0.96 0.98 rg", `${left} ${y - 5} ${width} ${rowHeight} re`, "f", "0 0 0 RG", "0 0 0 rg", "0.6 w"];
+  commands.push(`${left} ${y - 5} ${labelWidth} ${rowHeight} re`, "S");
+  commands.push(`${left + labelWidth} ${y - 5} ${amountWidth} ${rowHeight} re`, "S");
+  commands.push("BT", "/F1 8 Tf", `${left + 5} ${y + 2} Td`, `(${pdfEscape(truncatePdfText(values[0], 90))}) Tj`, "ET");
+  commands.push("BT", "/F1 8 Tf", `${left + labelWidth + 5} ${y + 2} Td`, `(${pdfEscape(truncatePdfText(values[1], 24))}) Tj`, "ET");
+  return commands;
+}
+
+function truncatePdfText(value, maxLength) {
+  const text = normalizePdfText(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
+}
+
+function normalizePdfText(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "");
+}
+
+function pdfEscape(value) {
+  return normalizePdfText(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+
+function formatMoney(amount, currency = "ARS") {
+  return `${currency || "ARS"} ${Number(amount || 0).toLocaleString("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatInstallmentLabel(row) {
+  const current = Number(row.cuota_numero || 1);
+  const total = Number(row.cuotas_total || 1);
+  return total > 1 ? `${current}/${total}` : "Unico";
+}
+
+function formatExcelText(value) {
+  const text = String(value || "");
+  return text ? `\u00a0${text}` : "";
+}
+
+function htmlEscape(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatDateTime(value) {
+  return value.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function currentMonth() {
@@ -498,6 +1005,17 @@ function parseMovementPayload(body) {
   validateInstallments(normalized);
   normalized.moneda = String(normalized.moneda || "ARS").toUpperCase();
   return normalized;
+}
+
+function applySettlementDate(current, payload) {
+  const previousState = normalizeState(current.estado_pago);
+  const nextState = normalizeState(payload.estado_pago);
+  const wasUnsettled = !["pagado", "cobrado"].includes(previousState);
+  const isNowSettled = ["pagado", "cobrado"].includes(nextState);
+
+  if (wasUnsettled && isNowSettled) {
+    payload.fecha_movimiento = new Date().toISOString().slice(0, 10);
+  }
 }
 
 function validateInstallments(payload) {
@@ -590,5 +1108,14 @@ function httpError(status, code, message, details) {
   err.details = details;
   return err;
 }
+
+router.__test = {
+  buildFinanceReportModel,
+  classifyFinanceReportRow,
+  buildPaymentPlanRows,
+  buildPaymentPlanTotals,
+  formatPlanConcept,
+  sumByCurrency,
+};
 
 module.exports = router;

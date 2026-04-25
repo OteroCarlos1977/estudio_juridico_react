@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Download, Edit3, Filter, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
-import { Badge, ButtonGroup, Stack } from "react-bootstrap";
+import { Badge, ButtonGroup, Card, Col, Row, Stack } from "react-bootstrap";
 import { DataTable } from "../../ui/DataTable";
 import { QueryState } from "../../ui/QueryState";
 import "./finance.css";
@@ -35,9 +35,6 @@ export function FinanceTable({
     ? {
         flex: "1 1 auto",
         minHeight: 0,
-        maxHeight: "clamp(16rem, calc(100vh - 28rem), 24rem)",
-        overflowY: "auto",
-        overflowX: "hidden",
         paddingRight: "0.25rem",
       }
     : {
@@ -80,37 +77,56 @@ export function FinanceTable({
         </Stack>
       </div>
       {message && <p className={isSaveError ? "form-message error-text" : "form-message"}>{message}</p>}
-      <div className="totals-grid finance-summary-grid">
+      <Row xs={5} className="g-1 flex-nowrap overflow-auto finance-summary-grid">
         {summaries.map((item) => (
-          <button
-            className={`metric compact-metric finance-summary-card ${item.key} ${activeSummary === item.key ? "active" : ""}`}
-            key={item.key}
-            type="button"
-            onClick={() => toggleSummaryFilter(item.key)}
-            aria-pressed={activeSummary === item.key}
-          >
-            <span>{item.label}</span>
-            <strong>{formatMoney(item.amount, item.currency)}</strong>
-            <small>{item.count} movimiento{item.count === 1 ? "" : "s"}</small>
-          </button>
+          <Col key={item.key} className="finance-summary-col">
+            <Card
+              as={item.isBalance ? "div" : "button"}
+              className={`h-100 text-start finance-summary-card ${item.key} ${activeSummary === item.key ? "active" : ""}`}
+              onClick={item.isBalance ? undefined : () => toggleSummaryFilter(item.key)}
+              aria-label={item.label}
+              aria-pressed={item.isBalance ? undefined : activeSummary === item.key}
+            >
+              <Card.Body className="d-flex flex-column justify-content-between p-3">
+                <Card.Subtitle className="text-muted small">{item.label}</Card.Subtitle>
+                <Card.Title as="strong" className="mb-1 finance-summary-amount">
+                  {formatMoney(item.amount, item.currency)}
+                </Card.Title>
+                <Card.Text as="small" className="text-muted mb-0">
+                  {item.caption || `${item.count} movimiento${item.count === 1 ? "" : "s"}`}
+                </Card.Text>
+              </Card.Body>
+            </Card>
+          </Col>
         ))}
         {movements.length === 0 && <p className="muted-text">Sin totales para los filtros seleccionados.</p>}
-      </div>
+      </Row>
       <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando movimientos..." errorText="No se pudieron cargar los movimientos." />
       {!isLoading && !isError && (
         <div className="finance-groups" style={groupsContainerStyle}>
-          {visibleGroups.map((group) => (
+          {activeSummary === "all" ? (
             <MovementGroup
-              key={group.key}
-              title={group.title}
-              description={group.description}
-              movements={group.movements}
-              emptyText={group.emptyText}
-              autoHeight={activeSummary === "all"}
+              title="Vista General"
+              description="Movimientos organizados por estado financiero, sin cortes de seccion durante el scroll."
+              movements={buildGeneralMovements(groupedMovements)}
+              emptyText="No hay movimientos para los filtros seleccionados."
+              showGroupColumn
               onEdit={onEdit}
               onDelete={onDelete}
             />
-          ))}
+          ) : (
+            visibleGroups.map((group) => (
+              <MovementGroup
+                key={group.key}
+                title={group.title}
+                description={group.description}
+                movements={group.movements}
+                emptyText={group.emptyText}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))
+          )}
         </div>
       )}
 
@@ -192,7 +208,7 @@ export function FinanceTable({
                 <X size={16} />
               </button>
             </div>
-            <div className="filter-row finance-filters finance-modal-filters">
+            <div className="filter-row finance-filters finance-modal-filters finance-report-filters">
               <label>
                 Mes
                 <input name="mes" type="month" value={reportFilters.mes} onChange={onReportFilterChange} />
@@ -207,11 +223,13 @@ export function FinanceTable({
                 </select>
               </label>
               <label>
-                Pagos
-                <select name="vencimiento" value={reportFilters.vencimiento} onChange={onReportFilterChange}>
-                  <option value="todos">Todos</option>
-                  <option value="actuales_anteriores">Actuales y anteriores</option>
-                  <option value="futuros">Futuros</option>
+                Reporte
+                <select name="tipo_reporte" value={reportFilters.tipo_reporte} onChange={onReportFilterChange}>
+                  <option value="general">General</option>
+                  <option value="income">Ingresos</option>
+                  <option value="payments">Pagos</option>
+                  <option value="receivable">Por cobrar</option>
+                  <option value="payment_plans">Planes de pago</option>
                 </select>
               </label>
             </div>
@@ -232,7 +250,7 @@ export function FinanceTable({
   );
 }
 
-function MovementGroup({ title, description, movements, emptyText, autoHeight = false, onEdit, onDelete }) {
+function MovementGroup({ title, description, movements, emptyText, showGroupColumn = false, onEdit, onDelete }) {
   const totalAmount = movements.reduce((total, movement) => total + getCurrentInstallmentAmount(movement), 0);
   const currency = movements[0]?.moneda || "ARS";
 
@@ -251,15 +269,15 @@ function MovementGroup({ title, description, movements, emptyText, autoHeight = 
       <DataTable
         wrapperClassName="finance-table-wrap"
         className="finance-table"
-        autoHeight={autoHeight}
         scrollStyle={{
           marginBottom: "0.8rem",
           paddingBottom: "0.4rem",
         }}
-        maxHeight={autoHeight ? undefined : "clamp(16rem, calc(100vh - 28rem), 22rem)"}
+        maxHeight="clamp(16rem, calc(100vh - 28rem), 22rem)"
       >
           <thead>
             <tr>
+              {showGroupColumn && <th>Vista</th>}
               <th>Fecha</th>
               <th>Concepto</th>
               <th>Cliente</th>
@@ -273,6 +291,7 @@ function MovementGroup({ title, description, movements, emptyText, autoHeight = 
           <tbody>
             {movements.map((item) => (
               <tr key={item.id}>
+                {showGroupColumn && <td>{item.financeGroupLabel || "-"}</td>}
                 <td>{item.fecha_movimiento || "-"}</td>
                 <td>
                   <strong className="table-main-text">{formatConcept(item)}</strong>
@@ -306,7 +325,7 @@ function MovementGroup({ title, description, movements, emptyText, autoHeight = 
             ))}
             {movements.length === 0 && (
               <tr>
-                <td colSpan="8">{emptyText}</td>
+                <td colSpan={showGroupColumn ? "9" : "8"}>{emptyText}</td>
               </tr>
             )}
             </tbody>
@@ -361,12 +380,13 @@ function groupMovements(movements, includeHistoricalSettled = false) {
       const state = String(item.estado_pago || "").toLowerCase();
       const itemMonth = String(item.fecha_movimiento || "").slice(0, 7);
       const isHistoricalSettled = ["pagado", "cobrado"].includes(state) && itemMonth < currentMonth;
+      const reportGroup = classifyMovementGroup(item);
 
       if (isHistoricalSettled && !includeHistoricalSettled) {
         return groups;
       }
 
-      if (isOutgoingMovement(item)) {
+      if (reportGroup === "payments") {
         if (itemMonth === currentMonth || includeHistoricalSettled) {
           groups.payable.push(item);
         }
@@ -375,12 +395,12 @@ function groupMovements(movements, includeHistoricalSettled = false) {
 
       const dueDate = item.fecha_vencimiento || item.fecha_movimiento || "";
 
-      if (["vencido", "cancelado"].includes(state) || (state === "pendiente" && isPastDate(dueDate))) {
+      if (reportGroup === "receivable" && (state === "vencido" || (state === "pendiente" && isPastDate(dueDate)))) {
         groups.overdue.push(item);
         return groups;
       }
 
-      if (["pagado", "cobrado"].includes(state) && itemMonth === currentMonth) {
+      if (reportGroup === "income" && itemMonth === currentMonth) {
         groups.collected.push(item);
         return groups;
       }
@@ -400,7 +420,7 @@ function buildSummaries(groups) {
     { key: "overdue", label: "Cobros vencidos", movements: groups.overdue },
   ];
 
-  return items.map((item) => {
+  const summaries = items.map((item) => {
     const firstCurrency = item.movements[0]?.moneda || "ARS";
     return {
       key: item.key,
@@ -410,6 +430,20 @@ function buildSummaries(groups) {
       amount: item.movements.reduce((total, movement) => total + getCurrentInstallmentAmount(movement), 0),
     };
   });
+  const collected = summaries.find((item) => item.key === "collected");
+  const payable = summaries.find((item) => item.key === "payable");
+
+  return [
+    ...summaries,
+    {
+      key: "monthly-balance",
+      label: "Saldo del mes",
+      currency: collected?.currency || payable?.currency || "ARS",
+      amount: Number((Number(collected?.amount || 0) - Number(payable?.amount || 0)).toFixed(2)),
+      caption: "Cobrado - pagos",
+      isBalance: true,
+    },
+  ];
 }
 
 function getCurrentInstallmentAmount(item) {
@@ -480,6 +514,16 @@ function getVisibleGroups(groupedMovements, activeSummary) {
   return groups.filter((group) => group.key === activeSummary);
 }
 
+function buildGeneralMovements(groupedMovements) {
+  return getVisibleGroups(groupedMovements, "all").flatMap((group) =>
+    group.movements.map((movement) => ({
+      ...movement,
+      financeGroupLabel: group.title,
+      financeSortKey: group.key,
+    }))
+  );
+}
+
 function getSummaryLabel(key) {
   if (key === "payable") return "Lo que se paga";
   if (key === "collected") return "Cobrado";
@@ -491,6 +535,20 @@ function getSummaryLabel(key) {
 function isOutgoingMovement(item) {
   const slug = String(item.tipo_movimiento_slug || "").toLowerCase();
   return slug === "gasto" || slug === "cuenta_por_pagar";
+}
+
+function classifyMovementGroup(item) {
+  const state = String(item.estado_pago || "").toLowerCase();
+
+  if (isOutgoingMovement(item)) {
+    return "payments";
+  }
+
+  if (["pagado", "cobrado"].includes(state)) {
+    return "income";
+  }
+
+  return "receivable";
 }
 
 function isPastDate(value) {

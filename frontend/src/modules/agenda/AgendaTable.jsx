@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, Download, Edit3, Plus, Trash2 } from "lucide-react";
-import { Badge, Offcanvas, Stack } from "react-bootstrap";
+import { Badge, ButtonGroup, Offcanvas, Stack } from "react-bootstrap";
 import { DataTable } from "../../ui/DataTable";
 import { QueryState } from "../../ui/QueryState";
 import { TableActionsDropdown } from "../../ui/TableActionsDropdown";
@@ -34,20 +34,31 @@ export function AgendaTable({
             Buscar
             <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Titulo, expediente, estado" />
           </label>
+          <ButtonGroup aria-label="Vista de agenda" className="segmented-control">
+            <button className={`secondary-button ${typeFilter === "todos" ? "active" : ""}`} type="button" onClick={() => onTypeFilterChange("todos")}>
+              General
+            </button>
+            <button className={`secondary-button ${typeFilter === "agenda" ? "active" : ""}`} type="button" onClick={() => onTypeFilterChange("agenda")}>
+              Agenda
+            </button>
+            <button className={`secondary-button ${typeFilter === "tarea" ? "active" : ""}`} type="button" onClick={() => onTypeFilterChange("tarea")}>
+              Tareas
+            </button>
+          </ButtonGroup>
           <button className="primary-button" type="button" onClick={onCreate}>
             <Plus size={17} />
             Nueva tarea
           </button>
           <button className="secondary-button" type="button" onClick={() => setIsUtilityOpen(true)}>
             <Download size={16} />
-            Vista y reportes
+            Reporte
           </button>
         </Stack>
       </div>
       {message && <p className={isSaveError ? "form-message error-text" : "form-message"}>{message}</p>}
       <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando agenda..." errorText="No se pudo cargar la agenda." />
       {!isLoading && !isError && (
-        <DataTable maxHeight="40vh">
+        <DataTable maxHeight="clamp(26rem, calc(100vh - 15rem), 68vh)">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -61,7 +72,7 @@ export function AgendaTable({
             </thead>
             <tbody>
               {actions.map((item) => (
-                <tr key={item.id}>
+                <tr key={item.id} className={isOverdueAgendaItem(item) ? "agenda-row-overdue" : undefined}>
                   <td>{formatDate(item.fecha_vencimiento || item.fecha_evento)}</td>
                   <td>{item.clase_actuacion === "agenda" ? item.hora_evento || "-" : "-"}</td>
                   <td>{item.titulo || item.descripcion || "-"}</td>
@@ -73,7 +84,7 @@ export function AgendaTable({
                   </td>
                   <td>
                     <Badge pill bg="light" text="dark" className={`status-pill ${item.cumplida ? "success" : getAgendaStateClass(item.estado_actuacion)}`}>
-                      {item.cumplida ? "Cumplida" : item.estado_actuacion || "Pendiente"}
+                      {formatAgendaState(item)}
                     </Badge>
                   </td>
                   <td className="actions-cell">
@@ -99,25 +110,13 @@ export function AgendaTable({
 
       <Offcanvas show={isUtilityOpen} onHide={() => setIsUtilityOpen(false)} placement="end">
         <Offcanvas.Header closeButton>
-          <Offcanvas.Title>Vista y reportes</Offcanvas.Title>
+          <Offcanvas.Title>Reporte de agenda</Offcanvas.Title>
         </Offcanvas.Header>
         <Offcanvas.Body>
           <div className="offcanvas-form-grid">
-            <div className="subsection-title">
-              <h2>Vista</h2>
-            </div>
-            <label>
-              Ver
-              <select value={typeFilter} onChange={(event) => onTypeFilterChange(event.target.value)}>
-                <option value="todos">Todo</option>
-                <option value="agenda">Agenda</option>
-                <option value="tarea">Tareas</option>
-              </select>
-            </label>
-
-            <div className="subsection-title">
-              <h2>Reportes</h2>
-            </div>
+            <p className="muted-text">
+              Incluye solo elementos pendientes desde hoy para la vista seleccionada.
+            </p>
             <label>
               Periodo
               <select name="tipo" value={reportFilters.tipo} onChange={onReportFilterChange}>
@@ -150,4 +149,23 @@ function getAgendaStateClass(state) {
   if (["vencida", "cancelada"].includes(normalized)) return "warning";
   if (["cumplida", "cerrada"].includes(normalized)) return "success";
   return "";
+}
+
+function formatAgendaState(item) {
+  if (item.cumplida) return "Cumplida";
+  const labels = {
+    pendiente: "Pendiente",
+    en_proceso: "En proceso",
+    vencida: "Vencida",
+    finalizada: "Finalizada",
+    cancelada: "Cancelada",
+  };
+  return labels[item.estado_actuacion] || item.estado_actuacion || "Pendiente";
+}
+
+function isOverdueAgendaItem(item) {
+  if (item.cumplida) return false;
+  const date = item.fecha_vencimiento || item.fecha_evento || "";
+  if (!date) return false;
+  return date < new Date().toISOString().slice(0, 10);
 }

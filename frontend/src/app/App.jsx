@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Database, LogOut, Scale, Server } from "lucide-react";
+import { AlertCircle, CalendarClock, LogOut, Scale, Server } from "lucide-react";
 import { api, setAuthToken } from "../api/client";
 import { LoginView } from "./LoginView";
 import { AgendaPanel } from "../modules/agenda/AgendaPanel";
@@ -177,6 +177,11 @@ function App() {
             </a>
           ))}
         </nav>
+
+        <div className={isApiReady ? "status sidebar-status online" : "status sidebar-status offline"}>
+          <Server size={16} />
+          {isApiReady ? "API conectada" : "API sin conexion"}
+        </div>
       </aside>
 
       <section className="workspace">
@@ -184,10 +189,6 @@ function App() {
           <div>
             <p className="eyebrow">{activeSectionConfig.eyebrow}</p>
             <h1>{activeSectionConfig.title}</h1>
-          </div>
-          <div className={isApiReady ? "status online" : "status offline"}>
-            <Server size={16} />
-            {isApiReady ? "API conectada" : "API sin conexion"}
           </div>
           <div className="user-menu">
             <span>{currentUser.nombre_completo || currentUser.username}</span>
@@ -207,7 +208,6 @@ function App() {
         <div className="module-content">
           {activeSection === "dashboard" && (
             <DashboardPanel
-              database={healthQuery.data?.database}
               summary={summaryQuery.data}
               dollarQuotes={dollarQuery.data || []}
               isLoading={summaryQuery.isLoading}
@@ -228,13 +228,41 @@ function App() {
   );
 }
 
-function DashboardPanel({ database, summary, dollarQuotes, isLoading, isError, isDollarLoading, isDollarError }) {
+function DashboardPanel({ summary, dollarQuotes, isLoading, isError, isDollarLoading, isDollarError }) {
   const [now, setNow] = useState(() => new Date());
+  const [taskText, setTaskText] = useState("");
+  const [memoryTasks, setMemoryTasks] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("dashboard_memory_tasks") || "[]");
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("dashboard_memory_tasks", JSON.stringify(memoryTasks));
+  }, [memoryTasks]);
+
+  function addMemoryTask(event) {
+    event.preventDefault();
+    const text = taskText.trim();
+    if (!text) return;
+    setMemoryTasks((current) => [{ id: Date.now(), text, done: false }, ...current].slice(0, 8));
+    setTaskText("");
+  }
+
+  function toggleMemoryTask(taskId) {
+    setMemoryTasks((current) => current.map((task) => (task.id === taskId ? { ...task, done: !task.done } : task)));
+  }
+
+  function deleteMemoryTask(taskId) {
+    setMemoryTasks((current) => current.filter((task) => task.id !== taskId));
+  }
 
   return (
     <>
@@ -260,31 +288,53 @@ function DashboardPanel({ database, summary, dollarQuotes, isLoading, isError, i
         {isDollarError && <article className="metric"><span>Dolar</span><strong>Sin datos</strong><small>No se pudo consultar la cotizacion.</small></article>}
       </section>
       <section className="summary-grid" aria-label="Resumen operativo">
-        <Metric title="Clientes" value={summary?.clients ?? 0} />
-        <Metric title="Expedientes" value={summary?.cases ?? 0} />
-        <Metric title="Vencimientos" value={summary?.pendingDeadlines ?? 0} />
-        <Metric title="Impagos" value={summary?.unpaidMovements ?? 0} />
+        <Metric title="Clientes" value={summary?.clients ?? 0} href="#clientes" />
+        <Metric title="Expedientes" value={summary?.cases ?? 0} href="#expedientes" />
+        <Metric title="Vencimientos" value={summary?.pendingDeadlines ?? 0} href="#agenda" />
+        <Metric title="Impagos" value={summary?.unpaidMovements ?? 0} href="#finanzas" />
       </section>
 
-      <section className="panel">
-        <div className="panel-title">
-          <Database size={18} />
-          <h2>Conexion SQLite</h2>
+      <section className="panel dashboard-focus-panel">
+        <div className="dashboard-work-grid">
+          <div>
+            <div className="panel-title">
+              <CalendarClock size={18} />
+              <h2>Para hoy</h2>
+            </div>
+            <div className="dashboard-today-list">
+              {(summary?.todayItems || []).map((item, index) => (
+                <a className="dashboard-today-row" href={item.href} key={`${item.source}-${index}`}>
+                  <span className="dashboard-today-type">{item.tipo}</span>
+                  <span className="dashboard-today-time">{item.hora || "-"}</span>
+                  <strong>{item.detalle}</strong>
+                  <span>{item.referencia || "-"}</span>
+                </a>
+              ))}
+              {(summary?.todayItems || []).length === 0 && (
+                <div className="dashboard-today-empty">No hay tareas, pagos ni reuniones para hoy.</div>
+              )}
+            </div>
+          </div>
+          <aside className="dashboard-memory">
+            <div className="panel-title">
+              <h2>Por hacer</h2>
+            </div>
+            <form className="dashboard-memory-form" onSubmit={addMemoryTask}>
+              <input value={taskText} onChange={(event) => setTaskText(event.target.value)} placeholder="Agregar ayuda memoria" />
+              <button className="icon-button" type="submit" title="Agregar tarea">+</button>
+            </form>
+            <div className="dashboard-memory-list">
+              {memoryTasks.map((task) => (
+                <label className={`dashboard-memory-item ${task.done ? "done" : ""}`} key={task.id}>
+                  <input type="checkbox" checked={task.done} onChange={() => toggleMemoryTask(task.id)} />
+                  <span>{task.text}</span>
+                  <button type="button" onClick={() => deleteMemoryTask(task.id)} title="Quitar">×</button>
+                </label>
+              ))}
+              {memoryTasks.length === 0 && <p className="muted-text">Sin notas pendientes.</p>}
+            </div>
+          </aside>
         </div>
-        <dl className="details">
-          <div>
-            <dt>Estado</dt>
-            <dd>{database?.exists ? "Base encontrada" : "Base pendiente de copiar"}</dd>
-          </div>
-          <div>
-            <dt>Archivo</dt>
-            <dd>{database?.path || "Sin informacion"}</dd>
-          </div>
-          <div>
-            <dt>Tamano</dt>
-            <dd>{database?.sizeBytes ?? 0} bytes</dd>
-          </div>
-        </dl>
       </section>
     </>
   );
@@ -324,13 +374,23 @@ function formatCurrency(value) {
   })}`;
 }
 
-function Metric({ title, value }) {
-  return (
-    <article className="metric">
+function Metric({ title, value, href }) {
+  const content = (
+    <>
       <span>{title}</span>
       <strong>{value}</strong>
-    </article>
+    </>
   );
+
+  if (href) {
+    return (
+      <a className="metric metric-link" href={href}>
+        {content}
+      </a>
+    );
+  }
+
+  return <article className="metric">{content}</article>;
 }
 
 export default App;

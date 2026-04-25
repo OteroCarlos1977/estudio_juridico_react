@@ -44,7 +44,7 @@ export function CaseTable({
       {message && <p className={isSaveError ? "form-message error-text" : "form-message"}>{message}</p>}
       <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando expedientes..." errorText="No se pudieron cargar los expedientes." />
       {!isLoading && !isError && (
-        <DataTable maxHeight="40vh">
+        <DataTable maxHeight="clamp(26rem, calc(100vh - 15rem), 68vh)">
             <thead>
               <tr>
                 <th>Numero</th>
@@ -64,22 +64,19 @@ export function CaseTable({
                   <td>{caseItem.fuero || "-"}</td>
                   <td>
                     <Badge pill bg="light" text="dark" className={`status-pill ${getCaseStateClass(caseItem.estado_expediente)}`}>
-                      {caseItem.estado_expediente || "-"}
+                      {formatCaseStateLabel(caseItem.estado_expediente)}
                     </Badge>
                   </td>
                   <td className="actions-cell">
-                    <ButtonGroup aria-label="Acciones del expediente" className="row-actions table-button-group">
-                      <button className="row-button" type="button" onClick={() => onView(caseItem.id)}>
+                    <ButtonGroup aria-label="Acciones del expediente" className="row-actions table-button-group table-action-icons">
+                      <button className="row-button icon-only-button table-action-icon-button" type="button" onClick={() => onView(caseItem.id)} title="Ver" aria-label="Ver">
                         <Eye size={15} />
-                        Ver
                       </button>
-                      <button className="row-button" type="button" onClick={() => onEdit(caseItem.id)}>
+                      <button className="row-button icon-only-button table-action-icon-button" type="button" onClick={() => onEdit(caseItem.id)} title="Editar" aria-label="Editar">
                         <Edit3 size={15} />
-                        Editar
                       </button>
-                      <button className="row-button danger" type="button" onClick={() => onDelete(caseItem)}>
+                      <button className="row-button icon-only-button table-action-icon-button danger" type="button" onClick={() => onDelete(caseItem)} title="Eliminar" aria-label="Eliminar">
                         <Trash2 size={15} />
-                        Eliminar
                       </button>
                     </ButtonGroup>
                   </td>
@@ -116,7 +113,7 @@ export function CaseTable({
               <select name="estado" value={filters.estado} onChange={onFilterChange}>
                 <option value="todos">Todos</option>
                 {stateOptions.map((state) => (
-                  <option key={state} value={state}>{state}</option>
+                  <option key={state} value={state}>{formatCaseStateLabel(state)}</option>
                 ))}
               </select>
             </label>
@@ -155,4 +152,8 @@ function getCaseStateClass(state) {
   if (["cerrado", "finalizado", "archivado"].includes(normalized)) return "success";
   if (["vencido", "suspendido"].includes(normalized)) return "warning";
   return "";
+}
+
+function formatCaseStateLabel(state) {
+  return state === "Activo" ? "Iniciado" : state || "-";
 }

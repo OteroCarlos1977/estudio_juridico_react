@@ -63,6 +63,7 @@ const actionFields = [
 
 router.get("/", (req, res, next) => {
   try {
+    refreshOverdueActions();
     const filters = parseListFilters(req.query);
     const { whereSql, params } = buildListWhere(filters);
 
@@ -103,6 +104,7 @@ router.get("/", (req, res, next) => {
 
 router.get("/reportes/agenda.pdf", (req, res, next) => {
   try {
+    refreshOverdueActions();
     const range = buildAgendaReportRange(req.query);
     const rows = getDb()
       .prepare(
@@ -114,6 +116,7 @@ router.get("/reportes/agenda.pdf", (req, res, next) => {
         FROM actuaciones a
         LEFT JOIN expedientes e ON e.id = a.expediente_id
         WHERE a.activo = 1
+          AND a.cumplida = 0
           AND COALESCE(a.fecha_vencimiento, a.fecha_evento) >= @desde
           AND COALESCE(a.fecha_vencimiento, a.fecha_evento) <= @hasta
           AND (
@@ -142,6 +145,7 @@ router.get("/reportes/agenda.pdf", (req, res, next) => {
 
 router.get("/:id", (req, res, next) => {
   try {
+    refreshOverdueActions();
     const action = findActionById(req.params.id);
     if (!action) {
       throw httpError(404, "ACTION_NOT_FOUND", "Actuacion no encontrada.");
@@ -316,6 +320,23 @@ function findActionById(id) {
     .get(numericId);
 }
 
+function refreshOverdueActions() {
+  getDb()
+    .prepare(
+      `UPDATE actuaciones
+      SET
+        estado_actuacion = 'vencida',
+        updated_at = @updated_at
+      WHERE activo = 1
+        AND cumplida = 0
+        AND estado_actuacion IN ('pendiente', 'en_proceso')
+        AND COALESCE(fecha_vencimiento, fecha_evento) IS NOT NULL
+        AND COALESCE(fecha_vencimiento, fecha_evento) <> ''
+        AND COALESCE(fecha_vencimiento, fecha_evento) < date('now')`
+    )
+    .run({ updated_at: currentTimestamp() });
+}
+
 function parseListFilters(query) {
   const limit = Number(query.limit || 120);
   return {
@@ -370,7 +391,8 @@ function buildAgendaReportRange(query) {
   if (month) {
     const first = new Date(`${month}-01T00:00:00`);
     const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
-    return { desde: formatDate(first), hasta: formatDate(last), tipo: type, tipo_item: normalizeReportItemType(query.tipo_item), label: `Mes de ${formatMonthLabel(first)}` };
+    const start = first < today ? new Date(today.getFullYear(), today.getMonth(), today.getDate()) : first;
+    return { desde: formatDate(start), hasta: formatDate(last), tipo: type, tipo_item: normalizeReportItemType(query.tipo_item), label: `Mes de ${formatMonthLabel(first)}` };
   }
 
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -381,7 +403,7 @@ function buildAgendaReportRange(query) {
     end.setDate(start.getDate() + 14);
   } else if (type === "mensual") {
     return {
-      desde: formatDate(new Date(today.getFullYear(), today.getMonth(), 1)),
+      desde: formatDate(start),
       hasta: formatDate(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
       tipo: type,
       tipo_item: normalizeReportItemType(query.tipo_item),
@@ -548,7 +570,15 @@ function parseActionPayload(body) {
   if (normalized.cumplida && normalized.estado_actuacion === "pendiente") {
     normalized.estado_actuacion = "finalizada";
   }
+  if (!normalized.cumplida && isPastActionDate(normalized)) {
+    normalized.estado_actuacion = "vencida";
+  }
   return normalized;
+}
+
+function isPastActionDate(action) {
+  const date = action.fecha_vencimiento || action.fecha_evento || "";
+  return Boolean(date) && date < currentDate();
 }
 
 function normalizePayload(value) {

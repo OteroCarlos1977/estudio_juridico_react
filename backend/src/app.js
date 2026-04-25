@@ -56,10 +56,23 @@ app.get("/api/dashboard/summary", requireAuth, requirePermission("read"), (req, 
       "actuaciones",
       "cumplida = 0 AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento <> ''"
     ),
+    overdueDeadlines: countRows(
+      "actuaciones",
+      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) IS NOT NULL AND COALESCE(fecha_vencimiento, fecha_evento) <> '' AND COALESCE(fecha_vencimiento, fecha_evento) < date('now')"
+    ),
+    todayDeadlines: countRows(
+      "actuaciones",
+      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) = date('now')"
+    ),
+    nextSevenDaysDeadlines: countRows(
+      "actuaciones",
+      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) > date('now') AND COALESCE(fecha_vencimiento, fecha_evento) <= date('now', '+7 day')"
+    ),
     unpaidMovements: countRows(
       "movimientos_financieros",
       "LOWER(COALESCE(estado_pago, '')) NOT IN ('pagado', 'cancelado', 'cobrado')"
     ),
+    todayItems: getTodayDashboardItems(),
   });
 });
 
@@ -126,6 +139,52 @@ function countRows(tableName, whereClause) {
     : `SELECT COUNT(*) AS total FROM ${tableName}`;
 
   return db.prepare(sql).get().total;
+}
+
+function getTodayDashboardItems() {
+  const db = getDb();
+  const agendaItems = db
+    .prepare(
+      `SELECT
+        'agenda' AS source,
+        CASE WHEN a.clase_actuacion = 'agenda' THEN 'Agenda' ELSE 'Tarea' END AS tipo,
+        COALESCE(a.hora_evento, '') AS hora,
+        COALESCE(a.titulo, a.descripcion, 'Sin titulo') AS detalle,
+        COALESCE(c.razon_social, c.apellido || ', ' || c.nombre, e.numero_expediente, e.caratula, '') AS referencia,
+        '#agenda' AS href
+      FROM actuaciones a
+      LEFT JOIN expedientes e ON e.id = a.expediente_id
+      LEFT JOIN clientes c ON c.id = e.cliente_principal_id
+      WHERE a.activo = 1
+        AND a.cumplida = 0
+        AND COALESCE(a.fecha_vencimiento, a.fecha_evento) = date('now')`
+    )
+    .all();
+
+  const financeItems = db
+    .prepare(
+      `SELECT
+        'finanzas' AS source,
+        CASE
+          WHEN LOWER(COALESCE(m.estado_pago, '')) IN ('pagado', 'cancelado', 'cobrado') THEN 'Finanzas'
+          ELSE 'Pago'
+        END AS tipo,
+        '' AS hora,
+        COALESCE(m.concepto, 'Movimiento financiero') AS detalle,
+        COALESCE(c.razon_social, c.apellido || ', ' || c.nombre, e.numero_expediente, '') AS referencia,
+        '#finanzas' AS href
+      FROM movimientos_financieros m
+      LEFT JOIN clientes c ON c.id = m.cliente_id
+      LEFT JOIN expedientes e ON e.id = m.expediente_id
+      WHERE m.activo = 1
+        AND LOWER(COALESCE(m.estado_pago, '')) NOT IN ('pagado', 'cancelado', 'cobrado')
+        AND COALESCE(NULLIF(m.fecha_vencimiento, ''), m.fecha_movimiento) = date('now')`
+    )
+    .all();
+
+  return [...agendaItems, ...financeItems]
+    .sort((left, right) => `${left.hora || "99:99"}-${left.tipo}`.localeCompare(`${right.hora || "99:99"}-${right.tipo}`))
+    .slice(0, 8);
 }
 
 function httpError(status, code, message, details) {

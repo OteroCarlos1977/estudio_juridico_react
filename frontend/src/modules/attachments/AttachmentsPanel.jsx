@@ -47,12 +47,6 @@ export function AttachmentsPanel() {
     retry: 1,
   });
 
-  const agendaQuery = useQuery({
-    queryKey: ["agenda", "attachments-options"],
-    queryFn: async () => (await api.get("/agenda", { params: { estado: "todos", limit: 300 } })).data.items,
-    retry: 1,
-  });
-
   const financeQuery = useQuery({
     queryKey: ["finance-movements", "attachments-options"],
     queryFn: async () => (await api.get("/finanzas/movimientos", { params: { estado_pago: "todos", limit: 300 } })).data.movements,
@@ -106,7 +100,6 @@ export function AttachmentsPanel() {
     const { name, value, files } = event.target;
     setForm((current) => normalizeAttachmentForm({ ...current, [name]: files ? files[0] : value }, name, {
       cases: casesQuery.data || [],
-      actions: agendaQuery.data || [],
       movements: financeQuery.data || [],
     }));
     setErrors((current) => ({ ...current, [name]: undefined }));
@@ -163,18 +156,11 @@ export function AttachmentsPanel() {
     }
   }
 
-  const optionQueriesLoading = clientsQuery.isLoading || casesQuery.isLoading || agendaQuery.isLoading || financeQuery.isLoading;
-  const optionQueriesError = clientsQuery.isError || casesQuery.isError || agendaQuery.isError || financeQuery.isError;
+  const optionQueriesLoading = clientsQuery.isLoading || casesQuery.isLoading || financeQuery.isLoading;
+  const optionQueriesError = clientsQuery.isError || casesQuery.isError || financeQuery.isError;
   const filteredCases = form.cliente_id
     ? (casesQuery.data || []).filter((caseItem) => String(caseItem.cliente_principal_id) === String(form.cliente_id))
     : (casesQuery.data || []);
-  const filteredActions = (agendaQuery.data || []).filter((action) => {
-    if (form.expediente_id) return String(action.expediente_id) === String(form.expediente_id);
-    if (form.cliente_id) {
-      return filteredCases.some((caseItem) => String(caseItem.id) === String(action.expediente_id));
-    }
-    return true;
-  });
   const filteredMovements = (financeQuery.data || []).filter((movement) => {
     if (form.expediente_id) return String(movement.expediente_id) === String(form.expediente_id);
     if (form.cliente_id) return String(movement.cliente_id) === String(form.cliente_id);
@@ -199,7 +185,7 @@ export function AttachmentsPanel() {
           errorText="No se pudieron cargar los adjuntos."
         />
         {!attachmentsQuery.isLoading && !attachmentsQuery.isError && (
-          <DataTable maxHeight="40vh">
+          <DataTable maxHeight="clamp(26rem, calc(100vh - 15rem), 68vh)">
               <thead>
                 <tr>
                   <th>Archivo</th>
@@ -282,17 +268,6 @@ export function AttachmentsPanel() {
                   }))}
                 />
                 <FormSelect
-                  label="Actuacion"
-                  name="actuacion_id"
-                  value={form.actuacion_id}
-                  onChange={handleChange}
-                  placeholder="Sin actuacion"
-                  options={filteredActions.map((action) => ({
-                    value: action.id,
-                    label: [action.fecha_vencimiento || action.fecha_evento, action.titulo || action.descripcion].filter(Boolean).join(" - "),
-                  }))}
-                />
-                <FormSelect
                   label="Movimiento"
                   name="movimiento_financiero_id"
                   value={form.movimiento_financiero_id}
@@ -327,7 +302,7 @@ function appendIfPresent(formData, key, value) {
   }
 }
 
-function normalizeAttachmentForm(form, changedField, { cases, actions, movements }) {
+function normalizeAttachmentForm(form, changedField, { cases, movements }) {
   const next = { ...form };
 
   if (changedField === "cliente_id") {
@@ -346,17 +321,6 @@ function normalizeAttachmentForm(form, changedField, { cases, actions, movements
     }
     next.actuacion_id = "";
     next.movimiento_financiero_id = "";
-  }
-
-  if (changedField === "actuacion_id" && next.actuacion_id) {
-    const selectedAction = actions.find((action) => String(action.id) === String(next.actuacion_id));
-    if (selectedAction?.expediente_id) {
-      next.expediente_id = String(selectedAction.expediente_id);
-      const selectedCase = cases.find((caseItem) => String(caseItem.id) === String(selectedAction.expediente_id));
-      if (selectedCase) {
-        next.cliente_id = String(selectedCase.cliente_principal_id || "");
-      }
-    }
   }
 
   if (changedField === "movimiento_financiero_id" && next.movimiento_financiero_id) {

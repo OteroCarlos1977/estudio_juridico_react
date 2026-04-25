@@ -12,34 +12,30 @@
   gap: var(--space-2);
 }
 
-.finance-summary-grid {
-  gap: var(--space-2);
-  margin-top: 4px;
-  margin-bottom: 8px;
-}
-
 .finance-summary-card {
   border-top: 4px solid transparent;
   cursor: pointer;
   min-height: 102px;
-  text-align: left;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
   width: 100%;
 }
 
+.finance-summary-col {
+  min-width: 132px;
+}
+
+.finance-summary-amount {
+  display: block;
+  font-size: clamp(15px, 1.2vw, 20px);
+  line-height: 1.1;
+}
+
 .finance-summary-card:hover {
-  box-shadow: var(--shadow-raised);
-  transform: translateY(-1px);
+  box-shadow: 0 0.5rem 1rem rgba(15, 23, 42, 0.12);
 }
 
 .finance-summary-card.active {
-  box-shadow: 0 0 0 2px rgba(34, 87, 168, 0.18), var(--shadow-raised);
-  transform: translateY(-1px);
-}
-
-.finance-summary-card:focus-visible {
-  outline: 3px solid rgba(45, 108, 223, 0.2);
-  outline-offset: 2px;
+  box-shadow: 0 0 0 2px rgba(34, 87, 168, 0.18), 0 0.5rem 1rem rgba(15, 23, 42, 0.12);
 }
 
 .finance-summary-card.collected {
@@ -56,6 +52,15 @@
 
 .finance-summary-card.overdue {
   border-top-color: var(--color-accent-danger-strong);
+}
+
+.finance-summary-card.monthly-balance {
+  border-top-color: var(--color-accent-info-strong, var(--color-accent-primary));
+  cursor: default;
+}
+
+.finance-summary-card.monthly-balance:hover {
+  box-shadow: none;
 }
 
 .finance-group {
@@ -105,6 +110,12 @@
 
 .finance-modal-filters {
   margin-top: 12px;
+}
+
+.filter-row.finance-filters.finance-report-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  max-width: 420px;
 }
 
 .finance-modal-actions {

@@ -45,7 +45,7 @@ export function FinancePanel() {
   const [reportFilters, setReportFilters] = useState({
     mes: new Date().toISOString().slice(0, 7),
     estado_pago: "todos",
-    vencimiento: "todos",
+    tipo_reporte: "general",
     formato: "xls",
   });
   const [search, setSearch] = useState("");
@@ -207,10 +207,10 @@ export function FinancePanel() {
     const params = new URLSearchParams();
     params.set("mes", reportFilters.mes);
     params.set("estado_pago", reportFilters.estado_pago);
-    params.set("vencimiento", reportFilters.vencimiento);
+    params.set("tipo_reporte", reportFilters.tipo_reporte);
     if (filters.cliente_id) params.set("cliente_id", filters.cliente_id);
     if (filters.expediente_id) params.set("expediente_id", filters.expediente_id);
-    await downloadFile(`/finanzas/reportes/finanzas.${format}?${params.toString()}`, `finanzas.${format}`);
+    await downloadFile(`/finanzas/reportes/finanzas.${format}?${params.toString()}`, `${getFinanceReportFileBase(reportFilters.tipo_reporte)}.${format}`);
   }
 
   function handleSubmit(event) {
@@ -326,6 +326,14 @@ export function FinancePanel() {
       )}
     </>
   );
+}
+
+function getFinanceReportFileBase(reportType) {
+  if (reportType === "income") return "finanzas_ingresos";
+  if (reportType === "payments") return "finanzas_pagos";
+  if (reportType === "receivable") return "finanzas_por_cobrar";
+  if (reportType === "payment_plans") return "finanzas_planes_de_pago";
+  return "finanzas_general";
 }
 
 function getDefaultInterestPercentage(totalInstallments) {

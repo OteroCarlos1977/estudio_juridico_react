@@ -1,5 +1,5 @@
 import { CalendarPlus, CheckCircle2, Download, Edit3, Eye, Trash2, X } from "lucide-react";
-import { Badge, ButtonGroup, Col, Row, Stack } from "react-bootstrap";
+import { Badge, Col, Row, Stack } from "react-bootstrap";
 import { showError } from "../../ui/alerts";
 import { viewAttachmentFile } from "../../ui/attachmentViewer";
 import { downloadFile } from "../../ui/download";
@@ -61,7 +61,7 @@ export function CaseDetail({
             label="Estado"
             value={(
               <Badge pill bg="light" text="dark" className={`status-pill ${getCaseStateClass(caseItem.estado_expediente)}`}>
-                {caseItem.estado_expediente || "-"}
+                {formatCaseStateLabel(caseItem.estado_expediente)}
               </Badge>
             )}
           />
@@ -114,7 +114,7 @@ export function CaseDetail({
       {isLoadingActions ? (
         <p className="muted-text">Cargando actuaciones...</p>
       ) : (
-        <DataTable maxHeight="40vh">
+        <DataTable maxHeight="clamp(18rem, calc(100vh - 28rem), 46vh)">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -140,22 +140,14 @@ export function CaseDetail({
                     </Badge>
                   </td>
                   <td className="actions-cell">
-                    <ButtonGroup aria-label="Acciones de actuacion" className="row-actions table-button-group">
-                      {!item.cumplida && (
-                        <button className="row-button" type="button" onClick={() => onCompleteAction(item.id)}>
-                          <CheckCircle2 size={15} />
-                          Cumplir
-                        </button>
-                      )}
-                      <button className="row-button" type="button" onClick={() => onEditAction(item.id)}>
-                        <Edit3 size={15} />
-                        Editar
-                      </button>
-                      <button className="row-button danger" type="button" onClick={() => onDeleteAction(item)}>
-                        <Trash2 size={15} />
-                        Eliminar
-                      </button>
-                    </ButtonGroup>
+                    <TableActionsDropdown
+                      label="Acciones de actuacion"
+                      items={[
+                        { key: "complete", label: "Cumplir", icon: <CheckCircle2 size={15} />, onClick: () => onCompleteAction(item.id), hidden: item.cumplida },
+                        { key: "edit", label: "Editar", icon: <Edit3 size={15} />, onClick: () => onEditAction(item.id) },
+                        { key: "delete", label: "Eliminar", icon: <Trash2 size={15} />, onClick: () => onDeleteAction(item), danger: true },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -194,4 +186,8 @@ function getCaseStateClass(state) {
   if (["cerrado", "finalizado", "archivado"].includes(normalized)) return "success";
   if (["vencido", "suspendido"].includes(normalized)) return "warning";
   return "";
+}
+
+function formatCaseStateLabel(state) {
+  return state === "Activo" ? "Iniciado" : state || "-";
 }

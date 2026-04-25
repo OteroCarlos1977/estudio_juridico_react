@@ -47,7 +47,7 @@ export function CaseForm({
             value={form.estado_expediente}
             error={errors.estado_expediente}
             onChange={onChange}
-            options={stateOptions.map((state) => ({ value: state, label: state }))}
+            options={stateOptions.map((state) => ({ value: state, label: formatCaseStateLabel(state) }))}
           />
           <FormField label="Fecha inicio" name="fecha_inicio" type="date" value={form.fecha_inicio} onChange={onChange} />
           <FormField label="Fecha cierre" name="fecha_cierre" type="date" value={form.fecha_cierre} error={errors.fecha_cierre} onChange={onChange} />
@@ -67,4 +67,8 @@ export function CaseForm({
       </Modal.Body>
     </Modal>
   );
+}
+
+function formatCaseStateLabel(state) {
+  return state === "Activo" ? "Iniciado" : state || "-";
 }

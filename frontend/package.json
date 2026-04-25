@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo No tests configured yet",
+    "test": "node tests/clientUtils.test.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

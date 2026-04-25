@@ -38,7 +38,7 @@ export function ClientTable({ clients, search, selectedClientId, isLoading, isEr
       </div>
 
       <QueryState isLoading={isLoading} isError={isError} loadingText="Cargando clientes..." errorText="No se pudieron cargar los clientes." />
-      {!isLoading && !isError && <DataTable maxHeight="40vh">
+      {!isLoading && !isError && <DataTable maxHeight="clamp(26rem, calc(100vh - 15rem), 68vh)">
           <thead>
             <tr>
               <th>Cliente</th>

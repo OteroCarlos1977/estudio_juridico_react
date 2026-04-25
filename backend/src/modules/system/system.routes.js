@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
+const Database = require("better-sqlite3");
 const { z } = require("zod");
 const { getDb } = require("../../db/database");
 const { requireRole } = require("../../auth/auth.middleware");
@@ -206,8 +207,36 @@ router.get("/backups", (req, res) => {
   res.json({ backups });
 });
 
-router.post("/backups", requireRole("Administrador"), (req, res, next) => {
-  next(httpError(503, "BACKUPS_DISABLED", "Backups desactivados temporalmente. Se revisara la integracion con SQLite en Windows."));
+router.post("/backups", requireRole("Administrador"), async (req, res, next) => {
+  try {
+    const db = getDb();
+    const filename = buildBackupFilename();
+    const filePath = path.join(backupDir, filename);
+    const createdAt = currentTimestamp();
+    const username = req.user?.username || "sistema";
+
+    await db.backup(filePath);
+    verifyBackupIntegrity(filePath);
+
+    const result = db
+      .prepare("INSERT INTO historial_backups (archivo, fecha, usuario) VALUES (@archivo, @fecha, @usuario)")
+      .run({
+        archivo: filename,
+        fecha: createdAt,
+        usuario: username,
+      });
+
+    res.status(201).json({
+      backup: {
+        id: result.lastInsertRowid,
+        archivo: filename,
+        fecha: createdAt,
+        usuario: username,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get("/backups/:archivo/descargar", requireRole("Administrador"), (req, res, next) => {
@@ -228,6 +257,28 @@ router.get("/backups/:archivo/descargar", requireRole("Administrador"), (req, re
     next(err);
   }
 });
+
+function buildBackupFilename() {
+  const timestamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+$/, "").replace("T", "_");
+  return `rollie_backup_${timestamp}.db`;
+}
+
+function verifyBackupIntegrity(filePath) {
+  if (!fs.existsSync(filePath)) {
+    throw httpError(500, "BACKUP_NOT_CREATED", "No se pudo crear el archivo de backup.");
+  }
+
+  const backupDb = new Database(filePath, { readonly: true, fileMustExist: true });
+  try {
+    const result = backupDb.prepare("PRAGMA integrity_check").get();
+    const value = Object.values(result || {})[0];
+    if (value !== "ok") {
+      throw httpError(500, "BACKUP_INTEGRITY_ERROR", "El backup fue creado pero no paso la verificacion de integridad.");
+    }
+  } finally {
+    backupDb.close();
+  }
+}
 
 function listUsers() {
   return getDb()

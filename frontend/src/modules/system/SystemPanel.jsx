@@ -164,7 +164,7 @@ export function SystemPanel({ currentUser }) {
         />
         {!isLoading && !isError && (
           <>
-            <DataTable maxHeight="40vh">
+            <DataTable maxHeight="clamp(22rem, calc(100vh - 22rem), 52vh)">
               <thead><tr><th>Usuario</th><th>Nombre</th><th>Email</th><th>Roles</th><th>Activo</th><th className="actions-cell">Acciones</th></tr></thead>
                 <tbody>
                   {(usersQuery.data || []).map((user) => (
@@ -204,7 +204,7 @@ export function SystemPanel({ currentUser }) {
                 )}
               </div>
             </section>
-            <DataTable maxHeight="32vh">
+            <DataTable maxHeight="clamp(14rem, calc(100vh - 34rem), 32vh)">
                 <thead><tr><th>Archivo</th><th>Fecha</th><th>Usuario</th><th className="actions-cell">Acciones</th></tr></thead>
                 <tbody>
                   {(backupsQuery.data || []).map((backup) => (

@@ -1,8 +1,160 @@
 # Cosas por hacer
 
-## Estado de la sesion
+## Estado actualizado para retomar la proxima semana
+
+Fecha de actualizacion: `2026-04-25`.
+
+Durante esta ultima ronda se avanzo principalmente sobre el recorrido visual, Agenda, Dashboard y Finanzas. El documento `pendientes_manana.md` queda absorbido por este archivo: sus tareas pendientes reales son verificaciones finales, tests, responsive/mobile y commit del bloque validado.
+
+### Completado en esta ronda
+
+1. Dashboard:
+   - Las cards informativas quedaron como accesos navegables.
+   - El estado de API se movio a la barra lateral inferior.
+   - Se reemplazo el bloque oculto de base de datos por una vista rapida `Para hoy`.
+   - Se agrego una lista simple `Por hacer` persistida en `localStorage`.
+
+2. Agenda:
+   - Los pendientes anteriores a la fecha actual pasan automaticamente a `vencida`.
+   - Las tareas cumplidas no se muestran en la vista principal.
+   - El reporte de Agenda excluye cumplidos y vencidos, y toma pendientes desde la fecha actual.
+   - La vista tiene selector `General / Agenda / Tareas`.
+   - Los vencidos se resaltan visualmente.
+
+3. Adjuntos:
+   - Se quito `Actuacion` del modal de nuevo adjunto.
+
+4. Tablas y acciones:
+   - Se extendio altura util de tablas en vistas principales.
+   - Las acciones de fila quedaron visibles como botones compactos.
+   - Los inputs de busqueda incorporan icono de lupa.
+   - En Expedientes se reemplazo visualmente `Activo` por `Iniciado`.
+
+5. Finanzas:
+   - Se consolidaron 4 grupos visuales:
+     - `Lo que se paga`
+     - `Cobrado`
+     - `Por cobrar`
+     - `Cobros vencidos`
+   - `Lo que se paga` toma egresos del mes actual.
+   - `Cobrado` toma ingresos/cobros del mes actual.
+   - `Por cobrar` toma deuda no vencida.
+   - `Cobros vencidos` toma deuda efectiva impaga vencida; `Cancelado` no se trata como vencido.
+   - Las cards filtran la lista al hacer click.
+   - Se corrigio la visibilidad de tablas y scroll hasta llegar a un estado aceptado visualmente.
+   - El modal de reportes apila sus campos verticalmente.
+   - Los reportes de Finanzas se separaron por tipo:
+     - `General`
+     - `Ingresos`
+     - `Pagos`
+     - `Por cobrar`
+     - `Planes de pago`
+   - El reporte general separa tablas y muestra balance `Ingresos - Pagos`.
+   - El reporte `Por cobrar` exporta dos tablas:
+     - `Por cobrar`
+     - `Cobros vencidos`
+   - El reporte `Planes de pago` permite seguimiento de cuotas cobradas, pendientes y vencidas.
+   - Se reorganizaron datos demo de planes de pago para que las cuotas sean coherentes con enero-abril 2026.
+   - Se creo backup previo de la base antes de reorganizar datos demo:
+     - `data/backups/pre_finanzas_planes_demo_20260425_123755.db`
+   - Excel ya muestra cuotas como texto (`4/6`) sin convertirlas a fecha.
+   - Validado el flujo de editar un vencido y pasarlo a `Cobrado`: entra en `Cobrado`, suma en la card, baja de `Cobros vencidos` y actualiza el saldo.
+
+### Verificaciones recientes
+
+- `node --check` ejecutado sobre rutas backend tocadas.
+- `npm run build` del frontend correcto.
+- Backend probado activo en `http://127.0.0.1:3001/api/health`.
+- Reportes protegidos devuelven `401` desde consola sin sesion, comportamiento esperado.
+
+### Valores de control actuales para Finanzas, abril 2026
+
+- `Planes de pago`: 4 cuotas, ARS 110.000.
+- `Por cobrar`: 2 movimientos no vencidos, ARS 112.500.
+- `Cobros vencidos`: 10 movimientos, ARS 590.000.
+- En `Cobros vencidos` hay 3 cuotas de planes por ARS 80.000.
+
+### Proximo bloque recomendado
+
+1. Hacer pasada manual completa en navegador sobre:
+   - Dashboard
+   - Clientes
+   - Expedientes
+   - Agenda
+   - Finanzas
+   - Adjuntos
+   - Sistema
+
+2. Verificar responsive/mobile:
+   - tablas
+   - filtros
+   - modales
+   - offcanvas
+   - acciones de fila
+   - revisar especialmente telefonos: hoy la app resulta poco funcional por tamanos, densidad y menu lateral poco visible
+   - Prioridad baja por decision funcional actual: la app se usara principalmente en PC/escritorio, no como despliegue web principal ni para muchos usuarios.
+
+3. Validar reportes desde UI logueada:
+   - Agenda PDF
+   - Finanzas Excel/PDF para `General`, `Ingresos`, `Pagos`, `Por cobrar`, `Planes de pago`
+   - revisar apertura en Excel real y LibreOffice si se va a usar en otro equipo
+
+4. Resolver backup:
+   - Reactivar backup usando `db.backup()` de `better-sqlite3`. Implementado en backend.
+   - Verificar integridad con `PRAGMA integrity_check`. Implementado.
+   - Mantener restauracion manual documentada por ahora.
+   - Creacion, registro, archivo fisico y descarga autenticada validados tras reiniciar backend.
+   - Backup de control creado:
+     - `data/backups/rollie_backup_20260425_224158.db`
+
+5. Crear tests reales:
+   - backend: agregado primer test real para reportes de Finanzas.
+   - frontend: agregado primer test real para utilidades de Clientes.
+   - reemplazar scripts `npm test` placeholder. Completado en backend/frontend.
+   - Pendiente: ampliar cobertura a auth, permisos, agenda, adjuntos, sistema y flujos principales de UI.
+
+6. Revisar cambios pendientes y commitear:
+   - no incluir `.db`, adjuntos reales, screenshots ni temporales
+   - separar commits por bloque si conviene:
+     - visual/dashboard/agenda
+     - finanzas/reportes/datos demo
+     - estilos/componentes
+
+# Recorrido Visual original procesado
+
+En Dashboard, en puesto la section de la base de datos en Display: none, sería útil que las card informativas, puedan ser clickeadas y llevar a la información que resumen, es decir que por ejemplo Vencimientos que da un total de 27, me lleve a la pantalla (Quizas Agenda), de donde saca el valor que muestra. Asi con el resto.
+
+Utilizar el espacio de la Seccion oculta para agregar información relevante, al momento no se me ocurre que podría ser. 
+
+Que API Conectada en vez de mostrarse en la parte superior, lo haga en la barra de tareas en la parte inferior debajo de sistema, casi pegada al botom. 
+
+En todas las tablas salvo expedientes, los botones de acciones están agrupados y tienen que ser desplegados para su funcionamiento, visualmente no queda bien. En expedientes los botones de acción están, pero deberían ser cuadrados no rectangulares, ocupan demasiado espacio. 
+
+En agenda aplicar un formato para que los vencidos resalten (color rojo particularmente),
+Las tareas cumplidas no deben mostrarse en pantalla. 
+Mejorar el filtro del reporte de agenda, para que no liste ni los vencidos, ni los cumplidos, solo los elementos que según la selección del usuario, queden por hacer desde la fecha actual hasta el limite solicitado, semana, mes, etc. 
+
+Quitar el filtro del modal de reporte, como hay espacio, colocar un botón de filtro junto al buscador.  O tal vez Botones, vista agenda, vista tareas y vista general.
+
+En Finanzas hay que mejorar mucho con los reportes partiendo de esta premisa al elegir todo, tanto en Excel, como en PDF, las tablas deben estar separadas y diferenciadas, mostrando subtotales, no agregar información que no aporte. 
+
+Debe haber una tabla de Pagos, una de Ingresos y una ultima de por cobrar. Ambos documentos tendrán titulo, harán referencia al periodo y al tipo de información que representan (Reporte General para todo, Reporte de Ingresos, Reporte de Pagos, Reporte por Cobrar), podemos incluir un reporte de planes de pago.
+
+Al final del General, debe haber una referencia al Balance, Total de Ingresos – Total de Pagos.
+
+Quitar actuación del modal Nuevo adjunto, no es de utilidad. 
+
+Colocar dentro de todos los inputs de búsqueda la imagen de la lupa, como placeholder, sobre el lado derecho, sin quitar el texto existente.
+
+En Clientes, Expediente y Agenda, hay que extender la altura de la tabla queda demasiado espacio debajo.
+
+En expediente, cambiar Activo por Iniciado.
+
+
+## Estado de la sesion heredado
 
 - Sesion local de referencia: `ROLLIE-2026-04-23-1009-ART`
+- Nota: esta seccion queda como historico. Para continuar usar primero `Estado actualizado para retomar la proxima semana`.
 - Fecha de cierre de esta nota: `2026-04-23 10:09:52 -03:00`
 - Para continuar: indicar "continuemos desde `ROLLIE-2026-04-23-1009-ART` y leer `cosas_por_hacer.md`".
 - Backend activo esperado: `http://127.0.0.1:3001`
@@ -60,7 +212,8 @@
    - Reportes dentro de Finanzas:
      - Excel editable.
      - PDF imprimible.
-     - Filtro por mes, estado y pagos actuales/anteriores/futuros.
+     - Filtro por mes, estado y tipo de reporte.
+     - Reportes separados: `General`, `Ingresos`, `Pagos`, `Por cobrar`, `Planes de pago`.
 
 5. Adjuntos:
    - Vista y descarga de archivos.
@@ -142,28 +295,16 @@
    - Confirmar si el reporte PDF debe incluir solo pendientes o todo el periodo.
 
 3. Finanzas:
-   - Corregir la logica final de las 4 tarjetas segun negocio:
-     - `Lo que se paga`
-     - `Cobrado`
-     - `Por cobrar`
-     - `Cobros vencidos`
-   - Confirmar que cada tarjeta sume exactamente lo que debe mostrar en la lista.
-   - Revisar si `Cobrado` debe tomar solo pagos del mes actual por `fecha_movimiento`, por `fecha_vencimiento` o por otro criterio.
-   - Revisar si `Por cobrar` debe incluir solo cuotas futuras, pendientes sin vencer, anticipos y/o cuentas por cobrar.
-   - Revisar si `Cobros vencidos` debe excluir `Cancelado` y tomar solo deuda efectiva impaga.
-   - Definir tratamiento de tipos `Ingreso`, `Cuenta por cobrar`, `Honorario`, `Anticipo` y `Cuenta por pagar` dentro de cada tarjeta.
-   - Rehacer la resolucion visual de la tabla principal de Finanzas partiendo de la vista `Ver todo`.
-   - Eliminar el enfoque actual de multiples scrolls/alturas combinadas si sigue generando recortes.
-   - Confirmar si `Ver todo` debe:
-     - usar un unico scroll general del bloque de Finanzas
-     - o usar una sola tabla unificada con agrupacion visual, sin cuatro tablas separadas
-   - Ajustar visualmente la densidad de la tabla principal de Finanzas una vez cerrada la logica.
+   - Validar manualmente desde UI que las cards, listas y reportes mantengan criterios coherentes con datos reales. Parcialmente validado con flujo `Vencido -> Cobrado`.
+   - Revisar si las cuotas de planes deben seguir apareciendo tanto en `Por cobrar/Cobros vencidos` como en `Planes de pago`; recomendacion actual: si, porque son deuda exigible y el reporte de planes es seguimiento.
+   - Revisar si hace falta una vista propia de `Planes de pago` dentro de la pantalla, no solo como reporte.
+   - Ajustar visualmente la densidad de Finanzas si en el repaso de la semana aparece algun recorte nuevo.
    - Probar que el formulario de Finanzas responda bien a cada tipo de movimiento y categoria.
    - Verificar que editar movimientos existentes no rompa la nueva clasificacion visual.
-   - Revisar reportes con casos reales.
+   - Revisar reportes con casos reales y no solo con datos demo reorganizados.
    - Verificar totales por moneda.
-   - Definir si los pagos futuros deben usar `fecha_vencimiento`, `fecha_movimiento` o ambos segun el caso.
    - Revisar que Excel abra correctamente en Excel/LibreOffice.
+   - Separar definitivamente datos demo de datos reales antes de instalacion.
 
 4. Usuarios y seguridad:
    - Probar alta, edicion, baja logica y login posterior de usuarios nuevos.
@@ -217,6 +358,7 @@
 
 ## Nota para la proxima sesion
 
+- `pendientes_manana.md` quedo absorbido por este documento. Usar `cosas_por_hacer.md` como fuente principal de continuidad.
 - El bloque 2 quedo suficientemente avanzado como para frenar aca y hacer una revision visual/manual completa.
 - La proxima sesion deberia arrancar con el repaso visual del usuario y una lista concreta de hallazgos por vista.
 - No conviene seguir metiendo mas cambios estructurales de UI antes de ese repaso.

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo No tests configured yet",
+    "test": "node tests/finance-report.test.js",
     "dev": "nodemon src/app.js",
     "start": "node src/app.js"
   },

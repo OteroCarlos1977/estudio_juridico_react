@@ -122,9 +122,10 @@ export function AgendaPanel() {
 
   const filteredAgenda = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return agendaQuery.data || [];
+    const activeItems = (agendaQuery.data || []).filter((item) => !item.cumplida);
+    if (!term) return activeItems;
 
-    return (agendaQuery.data || []).filter((item) =>
+    return activeItems.filter((item) =>
       [item.titulo, item.descripcion, item.numero_expediente, item.caratula, item.clase_actuacion, item.estado_actuacion]
         .filter(Boolean)
         .join(" ")
@@ -279,7 +280,7 @@ export function AgendaPanel() {
         onComplete={(actionId) => completeActionMutation.mutate(actionId)}
         onEdit={editAction}
         onDelete={deleteAction}
-        reportFilters={reportFilters}
+        reportFilters={{ ...reportFilters, tipo_item: typeFilter }}
         onReportFilterChange={handleReportFilterChange}
         onDownloadReport={downloadAgendaReport}
       />
