@@ -625,4 +625,9 @@ function httpError(status, code, message, details) {
   return err;
 }
 
+router.__test = {
+  parseActionPayload,
+  isPastActionDate,
+};
+
 module.exports = router;

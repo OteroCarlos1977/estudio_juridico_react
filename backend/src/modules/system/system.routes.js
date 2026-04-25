@@ -635,4 +635,9 @@ function httpError(status, code, message, details) {
   return err;
 }
 
+router.__test = {
+  buildBackupFilename,
+  verifyBackupIntegrity,
+};
+
 module.exports = router;
