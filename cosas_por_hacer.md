@@ -348,9 +348,16 @@ En expediente, cambiar Activo por Iniciado.
    - Revisar estructura final de carpetas de archivos.
 
 6. Datos:
-   - Separar datos demo de datos reales.
-   - Preparar una base inicial limpia para instalacion.
+   - Separar datos demo de datos reales. Completado con script generador.
+   - Preparar una base inicial limpia para instalacion. Completado:
+     - `scripts/create_clean_database.py`
+     - salida local ignorada por Git: `data/estudio_juridico_clean.db`
+     - documentacion: `docs/base_limpia.md`
    - Definir si se entrega con credenciales iniciales o si el instalador crea el primer administrador.
+   - Decision provisoria:
+     - conservar solo `admin` con rol `Administrador`
+     - eliminar usuarios demo/tecnicos de la base limpia
+     - mantener `admin/admin123` hasta definir si se fuerza cambio de contrasena en primer arranque
 
 7. Tests:
    - Estado actual:
