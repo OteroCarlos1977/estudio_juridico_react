@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { confirmDelete, showError, showSuccess } from "../../ui/alerts";
 import { downloadFile } from "../../ui/download";
+import { currentMonthISO, todayISO } from "../../utils/dateTime";
 import { FinanceForm } from "./FinanceForm";
 import { FinanceTable } from "./FinanceTable";
 
@@ -13,7 +14,7 @@ const emptyMovementForm = {
   categoria_financiera_id: "",
   concepto: "",
   descripcion: "",
-  fecha_movimiento: new Date().toISOString().slice(0, 10),
+  fecha_movimiento: todayISO(),
   fecha_vencimiento: "",
   monto: "",
   cuotas_total: 1,
@@ -43,7 +44,7 @@ export function FinancePanel() {
     include_historical_settled: false,
   });
   const [reportFilters, setReportFilters] = useState({
-    mes: new Date().toISOString().slice(0, 7),
+    mes: currentMonthISO(),
     estado_pago: "todos",
     tipo_reporte: "general",
     formato: "xls",

@@ -3,7 +3,15 @@ const test = require("node:test");
 
 const financeRouter = require("../src/modules/finance/finance.routes");
 
-const { buildFinanceReportModel, buildPaymentPlanRows, formatPlanConcept } = financeRouter.__test;
+const {
+  applySettlementDate,
+  buildFinanceReportModel,
+  buildPaymentPlanRows,
+  currentMonth,
+  formatPlanConcept,
+  isPastDate,
+  parseFinanceReportFilters,
+} = financeRouter.__test;
 
 test("reporte por cobrar separa deuda no vencida y cobros vencidos", () => {
   const rows = [
@@ -82,4 +90,29 @@ test("planes de pago generan seguimiento por cuota", () => {
   assert.equal(rows[0].seguimiento_estado, "Pendiente");
   assert.equal(rows[0].monto_pendiente, 30000);
   assert.equal(formatPlanConcept("Convenio honorarios - cuota 4/6"), "Convenio honorarios");
+});
+
+test("parseFinanceReportFilters calcula fin de mes sin Date.parse flexible", () => {
+  const leap = parseFinanceReportFilters({ mes: "2024-02", tipo_reporte: "general" });
+  const normal = parseFinanceReportFilters({ mes: "2026-02", tipo_reporte: "general" });
+
+  assert.equal(leap.desde, "2024-02-01");
+  assert.equal(leap.hasta, "2024-02-29");
+  assert.equal(normal.hasta, "2026-02-28");
+});
+
+test("helpers de fechas de finanzas usan calendario local y fechas validas", () => {
+  assert.match(currentMonth(), /^\d{4}-\d{2}$/);
+  assert.equal(isPastDate("2000-01-01"), true);
+  assert.equal(isPastDate("2999-01-01"), false);
+  assert.equal(isPastDate("2026-02-31"), false);
+});
+
+test("applySettlementDate actualiza fecha al pasar de pendiente a cobrado", () => {
+  const payload = { estado_pago: "Cobrado", fecha_movimiento: "2026-01-01" };
+
+  applySettlementDate({ estado_pago: "Vencido" }, payload);
+
+  assert.match(payload.fecha_movimiento, /^\d{4}-\d{2}-\d{2}$/);
+  assert.notEqual(payload.fecha_movimiento, "2026-01-01");
 });

@@ -7,6 +7,7 @@ require("dotenv").config();
 
 const { getDatabaseInfo, getDb } = require("./db/database");
 const { auditCrud } = require("./audit");
+const { addDaysISO, todayISO } = require("./utils/dateTime");
 const { requireAuth, requirePermission } = require("./auth/auth.middleware");
 const authRouter = require("./auth/auth.routes");
 const clientsRouter = require("./modules/clients/clients.routes");
@@ -49,6 +50,9 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/api/dashboard/summary", requireAuth, requirePermission("read"), (req, res) => {
+  const today = todayISO();
+  const nextSevenDays = addDaysISO(today, 7);
+
   res.json({
     clients: countRows("clientes", "activo = 1"),
     cases: countRows("expedientes", "activo = 1"),
@@ -58,21 +62,24 @@ app.get("/api/dashboard/summary", requireAuth, requirePermission("read"), (req, 
     ),
     overdueDeadlines: countRows(
       "actuaciones",
-      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) IS NOT NULL AND COALESCE(fecha_vencimiento, fecha_evento) <> '' AND COALESCE(fecha_vencimiento, fecha_evento) < date('now')"
+      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) IS NOT NULL AND COALESCE(fecha_vencimiento, fecha_evento) <> '' AND COALESCE(fecha_vencimiento, fecha_evento) < @today",
+      { today }
     ),
     todayDeadlines: countRows(
       "actuaciones",
-      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) = date('now')"
+      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) = @today",
+      { today }
     ),
     nextSevenDaysDeadlines: countRows(
       "actuaciones",
-      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) > date('now') AND COALESCE(fecha_vencimiento, fecha_evento) <= date('now', '+7 day')"
+      "cumplida = 0 AND COALESCE(fecha_vencimiento, fecha_evento) > @today AND COALESCE(fecha_vencimiento, fecha_evento) <= @nextSevenDays",
+      { today, nextSevenDays }
     ),
     unpaidMovements: countRows(
       "movimientos_financieros",
       "LOWER(COALESCE(estado_pago, '')) NOT IN ('pagado', 'cancelado', 'cobrado')"
     ),
-    todayItems: getTodayDashboardItems(),
+    todayItems: getTodayDashboardItems(today),
   });
 });
 
@@ -124,7 +131,7 @@ app.use("/api/finanzas", financeRouter);
 app.use("/api/adjuntos", attachmentsRouter);
 app.use("/api/sistema", systemRouter);
 
-function countRows(tableName, whereClause) {
+function countRows(tableName, whereClause, params = {}) {
   const db = getDb();
   const tableExists = db
     .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
@@ -138,10 +145,10 @@ function countRows(tableName, whereClause) {
     ? `SELECT COUNT(*) AS total FROM ${tableName} WHERE ${whereClause}`
     : `SELECT COUNT(*) AS total FROM ${tableName}`;
 
-  return db.prepare(sql).get().total;
+  return db.prepare(sql).get(params).total;
 }
 
-function getTodayDashboardItems() {
+function getTodayDashboardItems(today = todayISO()) {
   const db = getDb();
   const agendaItems = db
     .prepare(
@@ -157,9 +164,9 @@ function getTodayDashboardItems() {
       LEFT JOIN clientes c ON c.id = e.cliente_principal_id
       WHERE a.activo = 1
         AND a.cumplida = 0
-        AND COALESCE(a.fecha_vencimiento, a.fecha_evento) = date('now')`
+        AND COALESCE(a.fecha_vencimiento, a.fecha_evento) = @today`
     )
-    .all();
+    .all({ today });
 
   const financeItems = db
     .prepare(
@@ -178,9 +185,9 @@ function getTodayDashboardItems() {
       LEFT JOIN expedientes e ON e.id = m.expediente_id
       WHERE m.activo = 1
         AND LOWER(COALESCE(m.estado_pago, '')) NOT IN ('pagado', 'cancelado', 'cobrado')
-        AND COALESCE(NULLIF(m.fecha_vencimiento, ''), m.fecha_movimiento) = date('now')`
+        AND COALESCE(NULLIF(m.fecha_vencimiento, ''), m.fecha_movimiento) = @today`
     )
-    .all();
+    .all({ today });
 
   return [...agendaItems, ...financeItems]
     .sort((left, right) => `${left.hora || "99:99"}-${left.tipo}`.localeCompare(`${right.hora || "99:99"}-${right.tipo}`))
@@ -213,9 +220,19 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(port, () => {
-  const database = getDatabaseInfo();
+if (require.main === module) {
+  app.listen(port, () => {
+    const database = getDatabaseInfo();
 
-  console.log(`API listening on http://localhost:${port}`);
-  console.log(`Using database: ${database.path}`);
-});
+    console.log(`API listening on http://localhost:${port}`);
+    console.log(`Using database: ${database.path}`);
+  });
+}
+
+module.exports = {
+  app,
+  __test: {
+    countRows,
+    getTodayDashboardItems,
+  },
+};

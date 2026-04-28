@@ -1,6 +1,14 @@
 const express = require("express");
 const { z } = require("zod");
 const { getDb } = require("../../db/database");
+const {
+  currentMonthISO,
+  currentTimestampSQL,
+  isPastISODate,
+  isValidISODate,
+  lastDayOfMonthISO,
+  todayISO,
+} = require("../../utils/dateTime");
 const router = express.Router();
 
 const allowedPaymentStates = ["Pendiente", "Pagado", "Vencido", "Cancelado", "Cobrado"];
@@ -213,7 +221,6 @@ router.get("/movimientos/:id", (req, res, next) => {
 router.post("/movimientos", (req, res, next) => {
   try {
     const payload = parseMovementPayload(req.body);
-    applySettlementDate(current, payload);
     assertRelations(payload);
     const now = currentTimestamp();
     const result = getDb()
@@ -287,6 +294,7 @@ router.put("/movimientos/:id", (req, res, next) => {
     }
 
     const payload = parseMovementPayload(req.body);
+    applySettlementDate(current, payload);
     assertRelations(payload);
 
     getDb()
@@ -415,14 +423,11 @@ function buildListWhere(filters) {
 function parseFinanceReportFilters(query) {
   const month = String(query.mes || currentMonth()).match(/^\d{4}-\d{2}$/)?.[0] || currentMonth();
   const first = `${month}-01`;
-  const lastDate = new Date(`${month}-01T00:00:00`);
-  lastDate.setMonth(lastDate.getMonth() + 1);
-  lastDate.setDate(0);
   const reportType = normalizeFinanceReportType(query.tipo_reporte);
 
   return {
     desde: normalizeText(query.fecha_desde) || first,
-    hasta: normalizeText(query.fecha_hasta) || lastDate.toISOString().slice(0, 10),
+    hasta: normalizeText(query.fecha_hasta) || lastDayOfMonthISO(month),
     estado_pago: String(query.estado_pago || "todos"),
     tipo_reporte: reportType,
     cliente_id: query.cliente_id ? parseId(query.cliente_id, "INVALID_CLIENT_ID") : null,
@@ -540,7 +545,7 @@ function isUnsettledState(state) {
 
 function isPastDate(value) {
   if (!value) return false;
-  return String(value).slice(0, 10) < new Date().toISOString().slice(0, 10);
+  return isPastISODate(String(value).slice(0, 10));
 }
 
 function isReceivableOverdue(row) {
@@ -987,7 +992,7 @@ function formatDateTime(value) {
 }
 
 function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
+  return currentMonthISO();
 }
 
 function parseMovementPayload(body) {
@@ -1014,7 +1019,7 @@ function applySettlementDate(current, payload) {
   const isNowSettled = ["pagado", "cobrado"].includes(nextState);
 
   if (wasUnsettled && isNowSettled) {
-    payload.fecha_movimiento = new Date().toISOString().slice(0, 10);
+    payload.fecha_movimiento = todayISO();
   }
 }
 
@@ -1084,7 +1089,7 @@ function normalizeText(value) {
 
 function validateDate(value, field) {
   if (!value) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00`))) {
+  if (!isValidISODate(value)) {
     throw httpError(400, "VALIDATION_ERROR", `Fecha invalida en ${field}.`);
   }
 }
@@ -1098,7 +1103,7 @@ function parseId(id, code = "INVALID_MOVEMENT_ID") {
 }
 
 function currentTimestamp() {
-  return new Date().toISOString().slice(0, 19).replace("T", " ");
+  return currentTimestampSQL();
 }
 
 function httpError(status, code, message, details) {
@@ -1110,11 +1115,15 @@ function httpError(status, code, message, details) {
 }
 
 router.__test = {
+  applySettlementDate,
   buildFinanceReportModel,
   classifyFinanceReportRow,
   buildPaymentPlanRows,
   buildPaymentPlanTotals,
+  currentMonth,
   formatPlanConcept,
+  isPastDate,
+  parseFinanceReportFilters,
   sumByCurrency,
 };
 

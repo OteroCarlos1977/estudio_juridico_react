@@ -1,3 +1,5 @@
+import { currentMonthISO, isPastISODate } from "../../utils/dateTime";
+
 export function formatMoney(amount, currency = "ARS") {
   return `${currency || "ARS"} ${Number(amount || 0).toLocaleString("es-AR", {
     minimumFractionDigits: 2,
@@ -23,7 +25,7 @@ export function formatInstallments(item) {
 }
 
 export function groupMovements(movements, includeHistoricalSettled = false) {
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = currentMonthISO();
 
   return movements.reduce(
     (groups, item) => {
@@ -194,9 +196,7 @@ export function classifyMovementGroup(item) {
 }
 
 export function isPastDate(value) {
-  if (!value) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return value < today;
+  return isPastISODate(value);
 }
 
 function escapeRegExp(value) {

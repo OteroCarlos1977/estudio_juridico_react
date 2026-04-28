@@ -2,6 +2,15 @@ const express = require("express");
 const { z } = require("zod");
 const { getDb } = require("../../db/database");
 const { buildPdfReport } = require("../../reportUtils");
+const {
+  addDaysISO,
+  currentTimestampSQL,
+  formatDisplayDate: formatDisplayISODate,
+  isPastISODate,
+  isValidISODate,
+  lastDayOfMonthISO,
+  todayISO,
+} = require("../../utils/dateTime");
 
 const router = express.Router();
 
@@ -321,6 +330,7 @@ function findActionById(id) {
 }
 
 function refreshOverdueActions() {
+  const today = currentDate();
   getDb()
     .prepare(
       `UPDATE actuaciones
@@ -332,9 +342,9 @@ function refreshOverdueActions() {
         AND estado_actuacion IN ('pendiente', 'en_proceso')
         AND COALESCE(fecha_vencimiento, fecha_evento) IS NOT NULL
         AND COALESCE(fecha_vencimiento, fecha_evento) <> ''
-        AND COALESCE(fecha_vencimiento, fecha_evento) < date('now')`
+        AND COALESCE(fecha_vencimiento, fecha_evento) < @today`
     )
-    .run({ updated_at: currentTimestamp() });
+    .run({ today, updated_at: currentTimestamp() });
 }
 
 function parseListFilters(query) {
@@ -349,7 +359,8 @@ function parseListFilters(query) {
 
 function buildListWhere(filters) {
   const clauses = ["a.activo = 1"];
-  const params = { limit: filters.limit };
+  const today = currentDate();
+  const params = { limit: filters.limit, today, next14Days: addDaysISO(today, 14) };
 
   if (filters.expediente_id) {
     clauses.push("a.expediente_id = @expediente_id");
@@ -360,11 +371,11 @@ function buildListWhere(filters) {
     clauses.push("a.cumplida = 1");
   } else if (filters.estado === "vencidas") {
     clauses.push(
-      "a.cumplida = 0 AND a.fecha_vencimiento IS NOT NULL AND a.fecha_vencimiento <> '' AND a.fecha_vencimiento < date('now')"
+      "a.cumplida = 0 AND a.fecha_vencimiento IS NOT NULL AND a.fecha_vencimiento <> '' AND a.fecha_vencimiento < @today"
     );
   } else if (filters.estado === "proximas") {
     clauses.push(
-      "a.cumplida = 0 AND a.fecha_vencimiento IS NOT NULL AND a.fecha_vencimiento <> '' AND a.fecha_vencimiento BETWEEN date('now') AND date('now', '+14 day')"
+      "a.cumplida = 0 AND a.fecha_vencimiento IS NOT NULL AND a.fecha_vencimiento <> '' AND a.fecha_vencimiento BETWEEN @today AND @next14Days"
     );
   } else if (filters.estado === "pendientes") {
     clauses.push("a.cumplida = 0");
@@ -384,34 +395,34 @@ function buildListWhere(filters) {
 }
 
 function buildAgendaReportRange(query) {
-  const today = new Date();
+  const today = currentDate();
   const type = String(query.tipo || "diaria");
   const month = String(query.mes || "").match(/^\d{4}-\d{2}$/) ? String(query.mes) : null;
 
   if (month) {
-    const first = new Date(`${month}-01T00:00:00`);
-    const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
-    const start = first < today ? new Date(today.getFullYear(), today.getMonth(), today.getDate()) : first;
-    return { desde: formatDate(start), hasta: formatDate(last), tipo: type, tipo_item: normalizeReportItemType(query.tipo_item), label: `Mes de ${formatMonthLabel(first)}` };
+    const first = `${month}-01`;
+    const last = lastDayOfMonthISO(month);
+    const start = first < today ? today : first;
+    return { desde: start, hasta: last, tipo: type, tipo_item: normalizeReportItemType(query.tipo_item), label: `Mes de ${formatMonthLabel(month)}` };
   }
 
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const end = new Date(start);
+  const start = today;
+  let end = start;
   if (type === "semanal") {
-    end.setDate(start.getDate() + 6);
+    end = addDaysISO(start, 6);
   } else if (type === "quincenal") {
-    end.setDate(start.getDate() + 14);
+    end = addDaysISO(start, 14);
   } else if (type === "mensual") {
     return {
-      desde: formatDate(start),
-      hasta: formatDate(new Date(today.getFullYear(), today.getMonth() + 1, 0)),
+      desde: start,
+      hasta: lastDayOfMonthISO(today.slice(0, 7)),
       tipo: type,
       tipo_item: normalizeReportItemType(query.tipo_item),
-      label: `Mes de ${formatMonthLabel(today)}`,
+      label: `Mes de ${formatMonthLabel(today.slice(0, 7))}`,
     };
   }
 
-  return { desde: formatDate(start), hasta: formatDate(end), tipo: type, tipo_item: normalizeReportItemType(query.tipo_item), label: buildRangeLabel(type, start, end) };
+  return { desde: start, hasta: end, tipo: type, tipo_item: normalizeReportItemType(query.tipo_item), label: buildRangeLabel(type, start, end) };
 }
 
 function normalizeReportItemType(value) {
@@ -429,11 +440,15 @@ function buildRangeLabel(type, start, end) {
 }
 
 function formatMonthLabel(value) {
-  return value.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+  const [year, month] = String(value).slice(0, 7).split("-").map(Number);
+  return new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
 function formatDisplayDate(value) {
-  return value.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (value instanceof Date) {
+    return value.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+  return formatDisplayISODate(value);
 }
 
 function buildAgendaPdfReport(report) {
@@ -538,10 +553,6 @@ function pdfEscape(value) {
   return normalizePdfText(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
-function formatDate(value) {
-  return value.toISOString().slice(0, 10);
-}
-
 function assertActiveCase(caseId) {
   const caseItem = getDb().prepare("SELECT id FROM expedientes WHERE id = ? AND activo = 1").get(caseId);
   if (!caseItem) {
@@ -578,7 +589,7 @@ function parseActionPayload(body) {
 
 function isPastActionDate(action) {
   const date = action.fecha_vencimiento || action.fecha_evento || "";
-  return Boolean(date) && date < currentDate();
+  return isPastISODate(date);
 }
 
 function normalizePayload(value) {
@@ -592,7 +603,7 @@ function normalizePayload(value) {
 
 function validateDate(value, path, ctx) {
   if (!value) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00`))) {
+  if (!isValidISODate(value)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: [path],
@@ -610,11 +621,11 @@ function parseId(id, code = "INVALID_ACTION_ID") {
 }
 
 function currentDate() {
-  return new Date().toISOString().slice(0, 10);
+  return todayISO();
 }
 
 function currentTimestamp() {
-  return new Date().toISOString().slice(0, 19).replace("T", " ");
+  return currentTimestampSQL();
 }
 
 function httpError(status, code, message, details) {
@@ -626,8 +637,10 @@ function httpError(status, code, message, details) {
 }
 
 router.__test = {
+  buildAgendaReportRange,
   parseActionPayload,
   isPastActionDate,
+  validateDate,
 };
 
 module.exports = router;
