@@ -197,9 +197,9 @@ export function SystemPanel({ currentUser }) {
               <div className="panel-title split">
                 <h2>Backups</h2>
                 {isAdmin && (
-                  <button className="primary-button" type="button" onClick={() => createBackupMutation.mutate()} disabled>
+                  <button className="primary-button" type="button" onClick={() => createBackupMutation.mutate()} disabled={createBackupMutation.isPending}>
                     <Save size={17} />
-                    Backup pendiente
+                    {createBackupMutation.isPending ? "Creando backup..." : "Crear backup"}
                   </button>
                 )}
               </div>

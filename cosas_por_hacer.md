@@ -1,10 +1,21 @@
 # Cosas por hacer
 
-## Estado actualizado para retomar la proxima semana
+## Estado actualizado para retomar durante la semana
 
 Fecha de actualizacion: `2026-04-25`.
 
-Durante esta ultima ronda se avanzo principalmente sobre el recorrido visual, Agenda, Dashboard y Finanzas. El documento `pendientes_manana.md` queda absorbido por este archivo: sus tareas pendientes reales son verificaciones finales, tests, responsive/mobile y commit del bloque validado.
+Durante esta ultima ronda se avanzo principalmente sobre el recorrido visual, Agenda, Dashboard, Finanzas, Backup y Tests. El documento `pendientes_manana.md` queda absorbido por este archivo y queda solo como historico. El estado real actual ya fue commiteado y pusheado a `origin/main`.
+
+### Ultimo estado de Git
+
+- Rama: `main`.
+- Remoto: `origin/main`.
+- Push realizado correctamente el `2026-04-25`.
+- Ultimos commits subidos:
+  - `3bd769c Improve finance workflows, backups, and tests`
+  - `f0b41b1 Expand backend test coverage`
+  - `9faf0ad Expand attachment and finance test coverage`
+- Estado esperado al retomar: arbol limpio.
 
 ### Completado en esta ronda
 
@@ -59,11 +70,42 @@ Durante esta ultima ronda se avanzo principalmente sobre el recorrido visual, Ag
      - `data/backups/pre_finanzas_planes_demo_20260425_123755.db`
    - Excel ya muestra cuotas como texto (`4/6`) sin convertirlas a fecha.
    - Validado el flujo de editar un vencido y pasarlo a `Cobrado`: entra en `Cobrado`, suma en la card, baja de `Cobros vencidos` y actualiza el saldo.
+   - Se agrego una quinta card: `Saldo del mes`.
+   - Las cinco cards quedaron en una misma linea usando estructura de `react-bootstrap`.
+   - La vista general quedo como una sola tabla bajo el titulo `Vista General`, con columna `Vista`; ya no cambia de titulo durante el scroll.
+   - La logica pura de la tabla se extrajo a `frontend/src/modules/finance/financeUtils.js`.
+
+6. Backup:
+   - Backup manual reactivado con `db.backup()` de `better-sqlite3`.
+   - Integridad validada con `PRAGMA integrity_check`.
+   - Descarga autenticada validada.
+   - Restauracion manual documentada en `docs/restauracion_backups.md`.
+   - Backup de control creado:
+     - `data/backups/rollie_backup_20260425_224158.db`
+
+7. Tests:
+   - Backend tiene runner real con `npm test`.
+   - Frontend tiene runner real con `npm test`.
+   - Backend cubierto actualmente:
+     - Agenda
+     - Adjuntos
+     - Auth/permisos
+     - Finanzas/reportes
+     - Sistema/backups
+   - Frontend cubierto actualmente:
+     - utilidades de Clientes
+     - utilidades puras de Finanzas
+   - Validacion reciente:
+     - Backend: `20/20` tests OK.
+     - Frontend: `7/7` tests OK.
+     - Frontend build OK.
 
 ### Verificaciones recientes
 
 - `node --check` ejecutado sobre rutas backend tocadas.
 - `npm run build` del frontend correcto.
+- `npm test` backend correcto: `20` tests.
+- `npm test` frontend correcto: `7` tests.
 - Backend probado activo en `http://127.0.0.1:3001/api/health`.
 - Reportes protegidos devuelven `401` desde consola sin sesion, comportamiento esperado.
 
@@ -99,26 +141,15 @@ Durante esta ultima ronda se avanzo principalmente sobre el recorrido visual, Ag
    - Finanzas Excel/PDF para `General`, `Ingresos`, `Pagos`, `Por cobrar`, `Planes de pago`
    - revisar apertura en Excel real y LibreOffice si se va a usar en otro equipo
 
-4. Resolver backup:
-   - Reactivar backup usando `db.backup()` de `better-sqlite3`. Implementado en backend.
-   - Verificar integridad con `PRAGMA integrity_check`. Implementado.
-   - Mantener restauracion manual documentada por ahora.
-   - Creacion, registro, archivo fisico y descarga autenticada validados tras reiniciar backend.
-   - Backup de control creado:
-     - `data/backups/rollie_backup_20260425_224158.db`
+4. Ampliar tests, sin volver a cambiar UI:
+   - agregar casos de API con datos temporales para Clientes, Expedientes y Finanzas
+   - cubrir errores esperados de validacion y permisos
+   - evaluar tests frontend de componentes solo cuando haya una herramienta de render acordada
 
-5. Crear tests reales:
-   - backend: agregado primer test real para reportes de Finanzas.
-   - frontend: agregado primer test real para utilidades de Clientes.
-   - reemplazar scripts `npm test` placeholder. Completado en backend/frontend.
-   - Pendiente: ampliar cobertura a auth, permisos, agenda, adjuntos, sistema y flujos principales de UI.
-
-6. Revisar cambios pendientes y commitear:
-   - no incluir `.db`, adjuntos reales, screenshots ni temporales
-   - separar commits por bloque si conviene:
-     - visual/dashboard/agenda
-     - finanzas/reportes/datos demo
-     - estilos/componentes
+5. Preparar proxima etapa de cierre:
+   - pasar visual manual completa en PC/escritorio
+   - listar hallazgos por pantalla antes de tocar estilos
+   - evitar cambios responsivos profundos salvo problemas graves, porque la app queda priorizada para uso en PC
 
 # Recorrido Visual original procesado
 
@@ -166,7 +197,7 @@ En expediente, cambiar Activo por Iniciado.
   - `Finanzas` ya consume catalogos reales de la base (`tipos_movimiento_financiero` y `categorias_financieras`).
   - `better-sqlite3` fue recompilado correctamente para `Node 24.4.1`.
   - `backend/package.json` y `frontend/package.json` quedaron con `engines.node = >=24 <25`.
-  - Quedaron cambios sin commit en backend/frontend, concentrados en `Finanzas`, layout global y persistencia de sesion.
+  - Historico superado: en ese momento quedaron cambios sin commit en backend/frontend; al `2026-04-25` los cambios principales ya fueron commiteados y pusheados.
   - Se introdujo un componente reutilizable `frontend/src/ui/DataTable.jsx` basado en `react-bootstrap`.
   - La migracion de tablas a `DataTable` quedo incompleta a nivel funcional: compila, pero el comportamiento de scroll/alto aun no esta resuelto del todo.
 
@@ -184,7 +215,7 @@ En expediente, cambiar Activo por Iniciado.
    - Reportes quitados de Sistema.
    - Alta, edicion y baja logica de usuarios implementadas.
    - Normalizacion de usuarios: username/email en minuscula, nombres en mayuscula.
-   - Backup temporalmente desactivado para no bloquear la vista.
+   - Historico superado: backup estuvo temporalmente desactivado para no bloquear la vista; al `2026-04-25` fue reactivado y validado.
 
 3. Agenda:
    - Separacion conceptual entre Agenda y Tareas.
@@ -322,38 +353,21 @@ En expediente, cambiar Activo por Iniciado.
    - Definir si se entrega con credenciales iniciales o si el instalador crea el primer administrador.
 
 7. Tests:
-   - Crear tests backend para auth, permisos, agenda, finanzas, adjuntos y sistema.
-   - Crear pruebas frontend minimas para render y flujos principales.
-   - Agregar comando real `npm test` en backend y frontend.
+   - Estado actual:
+     - backend con `npm test` real y 20 tests.
+     - frontend con `npm test` real y 7 tests.
+   - Proximos tests recomendados:
+     - backend: Clientes, Expedientes y Finanzas con base temporal.
+     - backend: errores de validacion y permisos por rol sobre endpoints reales.
+     - frontend: sumar tests de componentes cuando se defina herramienta de render.
+     - mantener tests de helpers puros para logica de clasificacion, reportes y normalizacion.
 
 8. Git:
-   - Revisar cambios pendientes.
-   - Commits pendientes de esta ronda:
-     - `backend/src/modules/finance/finance.routes.js`
-     - `frontend/src/app/App.jsx`
-     - `frontend/src/ui/DataTable.jsx`
-     - `frontend/src/ui/FormFields.jsx`
-     - `frontend/src/ui/FormLayout.jsx`
-     - `frontend/src/ui/TableActionsDropdown.jsx`
-     - `frontend/src/modules/finance/FinanceForm.jsx`
-     - `frontend/src/modules/finance/FinancePanel.jsx`
-     - `frontend/src/modules/finance/FinanceTable.jsx`
-     - `frontend/src/modules/finance/finance.css`
-     - `frontend/src/modules/clients/ClientForm.jsx`
-     - `frontend/src/modules/clients/ClientDetail.jsx`
-     - `frontend/src/modules/clients/ClientTable.jsx`
-     - `frontend/src/modules/clients/ClientsPanel.jsx`
-     - `frontend/src/modules/cases/CaseTable.jsx`
-     - `frontend/src/modules/cases/CaseDetail.jsx`
-     - `frontend/src/modules/cases/CaseForm.jsx`
-     - `frontend/src/modules/cases/CaseActionForm.jsx`
-     - `frontend/src/modules/agenda/AgendaTable.jsx`
-     - `frontend/src/modules/agenda/AgendaForm.jsx`
-     - `frontend/src/modules/agenda/AgendaPanel.jsx`
-     - `frontend/src/modules/attachments/AttachmentsPanel.jsx`
-     - `frontend/src/modules/system/SystemPanel.jsx`
-     - `frontend/src/styles/global.css`
-   - Hacer commit cuando la pasada visual este aprobada.
+   - Cambios principales de esta ronda ya commiteados y pusheados.
+   - Mantener la regla:
+     - no incluir `.db`, adjuntos reales, screenshots ni temporales.
+     - separar commits por bloque funcional.
+     - correr backend/frontend tests y build antes de pushear.
    - Evitar commitear bases `.db`, adjuntos reales o archivos temporales.
 
 ## Nota para la proxima sesion
@@ -460,13 +474,13 @@ Pasos recomendados:
 - Usar la tabla de `Finanzas` en modo `Ver todo` como caso base.
 - Si esa queda funcional, migrar el mismo criterio a `Clientes`, `Expedientes`, `Agenda`, `Adjuntos` y `Sistema`.
 
-## Backup: problema actual y plan recomendado
+## Backup: estado y plan de mantenimiento
 
-### Problema detectado
+### Problema resuelto
 
 - El backup con `fs.copyFileSync` fallo en Windows con `EPERM` al copiar la base SQLite abierta.
-- Se intento usar el mecanismo `backup()` de `better-sqlite3`, pero quedo pendiente de validar con el proceso correcto.
-- Ese problema quedo resuelto en esta maquina recompilando `better-sqlite3` para `Node 24`.
+- Ese problema quedo resuelto usando `db.backup()` de `better-sqlite3` y manteniendo el proyecto en `Node 24`.
+- La creacion, registro, archivo fisico, integridad y descarga autenticada ya fueron validados.
 
 ### Solucion recomendada
 
@@ -565,11 +579,11 @@ Empaquetar como aplicacion local de escritorio usando Electron:
 
 ## Riesgos abiertos
 
-1. Backup aun desactivado.
-2. No hay tests reales.
-3. Hay muchos cambios sin commit.
-4. En otro equipo, `better-sqlite3` debera quedar compilado para `Node 24` o el backend no iniciara.
-5. Falta probar instalacion en equipo limpio.
+1. En otro equipo, `better-sqlite3` debera quedar compilado para `Node 24` o el backend no iniciara.
+2. Falta probar instalacion en equipo limpio.
+3. Falta separar definitivamente datos demo de datos reales.
+4. La responsividad en telefonos es poco funcional; prioridad baja por decision actual de uso en PC/escritorio.
+5. Falta ampliar tests de endpoints reales con base temporal.
 
 ## Tarea transversal: racionalizar estilos
 
