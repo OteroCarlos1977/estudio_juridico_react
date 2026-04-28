@@ -16,7 +16,7 @@ export function LoginView({ isLoading, error, onSubmit }) {
           <Scale size={30} />
           <div>
             <strong>Rollie</strong>
-            <span>Estudio juridico</span>
+            <span>Consultorio juridico</span>
           </div>
         </div>
         <form className="login-form" onSubmit={handleSubmit}>

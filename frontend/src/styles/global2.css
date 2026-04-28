@@ -7,43 +7,43 @@
   /* =========================
      Colores de texto
   ========================= */
-  --color-text-base: #2b1715;
-  --color-text-muted: #7a5a56;
-  --color-text-subtle: #5f403c;
-  --color-text-inverse: #fff7f4;
-  --color-text-sidebar-muted: #e7c7bf;
-  --color-text-sidebar-link: #f3d8d0;
+  --color-text-base: #172033;
+  --color-text-muted: #69758a;
+  --color-text-subtle: #4c5b70;
+  --color-text-inverse: #f8fafc;
+  --color-text-sidebar-muted: #b9c2d4;
+  --color-text-sidebar-link: #d8deea;
 
   /* =========================
      Fondos principales
   ========================= */
-  --color-bg-app: #f5efed;
+  --color-bg-app: #eef1f5;
   --color-bg-surface: #ffffff;
-  --color-bg-surface-muted: #fff6f3;
-  --color-bg-surface-soft: #fbf2ef;
-  --color-bg-selected-row: #fff0ec;
+  --color-bg-surface-muted: #f7faff;
+  --color-bg-surface-soft: #f7f9fc;
+  --color-bg-selected-row: #eef5ff;
 
   /* =========================
      Sidebar
   ========================= */
-  --color-bg-sidebar: #3a1f1c;
-  --color-bg-sidebar-active: #6f352e;
+  --color-bg-sidebar: #162033;
+  --color-bg-sidebar-active: #24324a;
 
   /* =========================
      Bordes
   ========================= */
-  --color-border-base: #dac3bd;
-  --color-border-soft: #e7d4cf;
-  --color-border-subtle: #f1e4e0;
+  --color-border-base: #cfd7e3;
+  --color-border-soft: #dde3ec;
+  --color-border-subtle: #edf0f5;
   --color-border-danger: #e6b8b3;
   --color-border-danger-hover: #d6928a;
 
   /* =========================
      Color principal
   ========================= */
-  --color-accent-primary: #9f4638;
-  --color-accent-primary-focus: #c85c4d;
-  --color-accent-primary-focus-shadow: rgba(200, 92, 77, 0.18);
+  --color-accent-primary: #2257a8;
+  --color-accent-primary-focus: #2d6cdf;
+  --color-accent-primary-focus-shadow: rgba(45, 108, 223, 0.14);
 
   /* =========================
      Éxito
@@ -74,8 +74,8 @@
   /* =========================
      Overlays e íconos
   ========================= */
-  --color-backdrop: rgba(58, 31, 28, 0.48);
-  --search-icon-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237a5a56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+  --color-backdrop: rgba(15, 23, 42, 0.45);
+  --search-icon-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2369758a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
 
   /* =========================
      Radios
@@ -94,10 +94,10 @@
   /* =========================
      Sombras
   ========================= */
-  --shadow-card: 0 1px 2px rgba(58, 31, 28, 0.06);
-  --shadow-panel: 0 12px 28px rgba(58, 31, 28, 0.14);
-  --shadow-modal: 0 18px 46px rgba(58, 31, 28, 0.24);
-  --shadow-raised: 0 10px 24px rgba(58, 31, 28, 0.12);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-panel: 0 12px 28px rgba(15, 23, 42, 0.12);
+  --shadow-modal: 0 18px 46px rgba(15, 23, 42, 0.22);
+  --shadow-raised: 0 10px 24px rgba(15, 23, 42, 0.1);
 
   font-family: var(--font-family-base);
   color: var(--color-text-base);
