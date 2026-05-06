@@ -128,9 +128,21 @@ La carpeta `data/` está pensada para archivos de trabajo local: base SQLite, ad
 
 ## Próximas mejoras recomendadas
 
-- Documentar variables de entorno en `.env.example`.
 - Agregar capturas de pantalla y flujo funcional principal.
 - Completar documentación de endpoints.
 - Incorporar migraciones o script de inicialización de base de datos.
 - Agregar instrucciones de backup/restauración.
 - Publicar una demo con datos ficticios si el alcance legal/privado lo permite.
+
+## Validación Ejecutada
+
+```bash
+cd backend
+npm test
+
+cd ../frontend
+npm test
+npm run build
+```
+
+Las pruebas de backend, pruebas de frontend y build del frontend fueron validadas correctamente luego de actualizar documentación, variables de entorno y metadatos del proyecto.
