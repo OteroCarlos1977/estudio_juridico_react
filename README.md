@@ -37,6 +37,21 @@ npm install
 npm run dev
 ```
 
+Variables de entorno:
+
+```bash
+cp .env.example .env
+```
+
+Valores principales:
+
+```env
+PORT=3001
+FRONTEND_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+DATABASE_PATH=../data/estudio_juridico_v28.db
+JWT_SECRET=change_this_secret_before_real_use
+```
+
 Para producción local:
 
 ```bash
@@ -70,6 +85,18 @@ npm install
 npm run dev
 ```
 
+Variables de entorno:
+
+```bash
+cp .env.example .env
+```
+
+Valor principal:
+
+```env
+VITE_API_URL=http://localhost:3001/api
+```
+
 Build:
 
 ```bash
@@ -93,6 +120,7 @@ La carpeta `data/` está pensada para archivos de trabajo local: base SQLite, ad
 ## Seguridad pendiente
 
 - Mantener secretos y credenciales fuera del repositorio.
+- Cambiar `JWT_SECRET` antes de cualquier uso real fuera de una demo local.
 - Confirmar que las contraseñas se guarden siempre con hash.
 - Validar entradas con Zod en endpoints críticos.
 - Revisar permisos sobre adjuntos y reportes.

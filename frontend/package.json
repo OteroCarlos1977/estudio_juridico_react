@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Frontend React para gestion operativa de estudio juridico: expedientes, clientes, agenda, finanzas y adjuntos.",
   "main": "index.js",
   "scripts": {
     "test": "node tests/run-tests.mjs",
@@ -9,8 +9,14 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "react",
+    "vite",
+    "legaltech",
+    "dashboard",
+    "gestion"
+  ],
+  "author": "Carlos Octavio Otero",
   "license": "ISC",
   "type": "commonjs",
   "engines": {

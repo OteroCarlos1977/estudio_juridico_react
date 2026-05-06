@@ -1,15 +1,21 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "API Express para gestion de estudio juridico con SQLite, JWT, adjuntos, agenda y finanzas.",
   "main": "index.js",
   "scripts": {
     "test": "node tests/run-tests.js",
     "dev": "nodemon src/app.js",
     "start": "node src/app.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "express",
+    "sqlite",
+    "jwt",
+    "legaltech",
+    "gestion"
+  ],
+  "author": "Carlos Octavio Otero",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
